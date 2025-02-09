@@ -11,6 +11,24 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv('.env')
+
+# Обновление сертификата SSL (для почтового клиента)
+import certifi 
+
+# На macOS: Запустите скрипт установки сертификатов Python:
+# bash
+# /Applications/Python\ 3.10/Install\ Certificates.command
+# (Замените 3.10 на вашу версию Python, если отличается.)
+
+# Установите пакет certifi:
+# pip install certifi
+
+# В settings.py добавьте:
+# Путь к доверенным обновленным сертификатам
+os.environ['SSL_CERT_FILE'] = certifi.where() # Указываем Python использовать сертификаты из certifi
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -19,12 +37,14 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '=hs6$#5om031nujz4staql9mbuste=!dc^6)4opsjq!vvjxzj@'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG')
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    os.getenv('ALLOWED_HOSTS'),
+]
 
 # Application definition
 
@@ -76,13 +96,10 @@ WSGI_APPLICATION = 'netology_pd_diplom.wsgi.application'
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
 
 DATABASES = {
-
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': os.getenv('DB_ENGINE'),
+        'NAME': os.path.join(f"{BASE_DIR}", f"{os.getenv('DB_NAME')}")
     }
-
-
 }
 
 # Password validation
@@ -125,14 +142,43 @@ AUTH_USER_MODEL = 'backend.User'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # EMAIL_USE_TLS = True
+# EMAIL_HOST = 'smtp.mail.ru'
+# EMAIL_HOST_USER = 'netology.diplom@mail.ru'
+# EMAIL_HOST_PASSWORD = 'CLdm7yW4U9nivz9mbexu'
+# EMAIL_PORT = '465'
+# EMAIL_USE_SSL = True
+# SERVER_EMAIL = EMAIL_HOST_USER
 
-EMAIL_HOST = 'smtp.mail.ru'
+# # Настройки для mail.ru, справка https://help.mail.ru/mail/security/protection/external/
+EMAIL_HOST = 'smtp.mail.ru' # Yandex SMTP-сервер
 
-EMAIL_HOST_USER = 'netology.diplom@mail.ru'
-EMAIL_HOST_PASSWORD = 'CLdm7yW4U9nivz9mbexu'
-EMAIL_PORT = '465'
-EMAIL_USE_SSL = True
-SERVER_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST_USER = 'festchuk@mail.ru'
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') # Пароль приложения
+EMAIL_PORT = '465' # Для SSL (или 587 для TLS)
+EMAIL_USE_SSL = True # Для порта 465 (если используете 587 → EMAIL_USE_TLS = True)
+SERVER_EMAIL = EMAIL_HOST_USER # Для отправки системных писем
+
+# # Проверка доступа к SMTP
+# # python manage.py shell
+
+# from django.core.mail import send_mail
+# from django.conf import settings
+
+# # Проверка параметров
+# print("EMAIL_HOST:", settings.EMAIL_HOST)
+# print("EMAIL_PORT:", settings.EMAIL_PORT)
+# print("EMAIL_HOST_USER:", settings.EMAIL_HOST_USER)
+
+# # Тест отправки
+# send_mail(
+#     'Тест аутентификации',
+#     'Проверка доступа к SMTP.',
+#     settings.EMAIL_HOST_USER,
+#     ['dilmah949dilma@gmail.com'], # Список рассылки тестового письма
+#     fail_silently=False,
+# )
+
+
 
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
