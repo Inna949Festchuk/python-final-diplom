@@ -87,6 +87,10 @@ class ConfirmAccount(APIView):
         # проверяем обязательные аргументы
         if {'email', 'token'}.issubset(request.data):
 
+            # ищем соответствие переданного email и token тому id-пользователя его email и токену что находится в БД
+            # наприм., в поле user модели ConfirmEmailToken указано значение FK 8, что соответствует пользователю с id=8 в связанной
+            # моделе User и некоторому токену в поле key модели ConfirmEmailToken. В моделе User пользователю с id=8 соответствует адрес из поля email. 
+            # Тем самым устанавливается соответствие между парой email-token переданной POST парой email-token, хранящейся в БД
             token = ConfirmEmailToken.objects.filter(user__email=request.data['email'],
                                                      key=request.data['token']).first()
             if token:
@@ -102,7 +106,7 @@ class ConfirmAccount(APIView):
 
 class AccountDetails(APIView):
     """
-    A class for managing user account details.
+    Класс для управления данными учетной записи пользователя.
 
     Methods:
     - get: Retrieve the details of the authenticated user.

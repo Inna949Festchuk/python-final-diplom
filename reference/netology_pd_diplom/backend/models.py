@@ -2,7 +2,8 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext_lazy as _ # функция интернационализации (i18n) 
+# gettext_lazy — "ленивая" версия функции перевода (вычисляется только при рендеринге, а не при загрузке модели).
 from django_rest_passwordreset.tokens import get_token_generator
 
 STATE_CHOICES = (
@@ -28,31 +29,65 @@ USER_TYPE_CHOICES = (
 class UserManager(BaseUserManager):
     """
     Миксин для управления пользователями
+    Менеджер полностью переопределяет логику работы с username, используя email как основной идентификатор
     """
     use_in_migrations = True
 
     def _create_user(self, email, password, **extra_fields):
         """
-        Create and save a user with the given username, email, and password.
+        Создайте и сохраните пользователя с указанным именем, адресом электронной почты и паролем.
+        Args:
+            email (str): Обязательное поле. Электронная почта пользователя
+            password (str): Пароль (может быть None для незарегистрированных пользователей)
+            **extra_fields: Дополнительные атрибуты пользователя
+        Returns:
+            User: созданный пользователь
+        Raises:
+            ValueError: если email не указан
         """
+        # Валидация обязательного поля
         if not email:
             raise ValueError('The given email must be set')
+        # Нормализация email (приведение к нижнему регистру, обрезка пробелов)
         email = self.normalize_email(email)
+        # Создание объекта пользователя (использует связанную модель User)
         user = self.model(email=email, **extra_fields)
+        # Безопасное хеширование пароля перед сохранением в БД
         user.set_password(password)
+        # Сохранение в БД с указанием используемой базы данных
         user.save(using=self._db)
         return user
+    
 
     def create_user(self, email, password=None, **extra_fields):
+        """
+        Создает обычного пользователя с дефолтными правами.
+        
+        Особенности:
+        - is_staff: False (нет доступа в админку)
+        - is_superuser: False (нет прав суперпользователя)
+        """
         extra_fields.setdefault('is_staff', False)
         extra_fields.setdefault('is_superuser', False)
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password, **extra_fields):
+        """
+        Создает суперпользователя с расширенными правами.
+        
+        Автоматически устанавливает:
+        - is_staff: True (доступ в админку)
+        - is_superuser: True (полные права)
+        - is_active: True (активация без подтверждения email)
+        
+        Raises:
+            ValueError: если права не соответствуют суперпользователю
+        """
+        # Установка прав суперпользователя
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
-
+        # Валидация установленных прав
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
@@ -64,14 +99,33 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     """
     Стандартная модель пользователей
+    Заменяет стандартный username на email для аутентификации (кастомизация).
     """
+    # Убираем обязательные поля по умолчанию (username не используется для входа)
     REQUIRED_FIELDS = []
+    # Менеджер объектов с расширенной логикой создания пользователей, так как
     objects = UserManager()
+    # используем email как уникальный идентификатор вместо username
     USERNAME_FIELD = 'email'
+    # Основное поле для аутентификации (уникальное, обязательно для заполнения)
     email = models.EmailField(_('email address'), unique=True)
-    company = models.CharField(verbose_name='Компания', max_length=40, blank=True)
-    position = models.CharField(verbose_name='Должность', max_length=40, blank=True)
+    # Дополнительные бизнес-поля (необязательные)
+    company = models.CharField(
+        verbose_name=_('Компания'), 
+        max_length=40, 
+        blank=True, # разрешаем пустое значение
+        help_text=_("Название компании пользователя (для магазинов)"),
+        ) 
+    position = models.CharField(
+        verbose_name=_('Должность'), 
+        max_length=40, 
+        blank=True,
+        help_text=_("Должность в компании (для сотрудников магазинов)"),
+        )
+    # Валидатор для username (оставлен для совместимости)
     username_validator = UnicodeUsernameValidator()
+    # Поле username оставлено для совместимости с материнским AbstractUser, 
+    # но не используется для аутентификации
     username = models.CharField(
         _('username'),
         max_length=150,
@@ -81,23 +135,38 @@ class User(AbstractUser):
             'unique': _("A user with that username already exists."),
         },
     )
+    # Статус активации (по умолчанию неактивен до подтверждения email)
     is_active = models.BooleanField(
         _('active'),
-        default=False,
+        default=False, # активируется после подтверждения email
         help_text=_(
             'Designates whether this user should be treated as active. '
-            'Unselect this instead of deleting accounts.'
-        ),
+            'Unselect this instead of deleting accounts.'),
     )
-    type = models.CharField(verbose_name='Тип пользователя', choices=USER_TYPE_CHOICES, max_length=5, default='buyer')
+    # Тип пользователя для разграничения ролей в системе
+    type = models.CharField(
+        verbose_name=_('Тип пользователя'), 
+        choices=USER_TYPE_CHOICES, # ('shop', 'Магазин') или ('buyer', 'Покупатель')
+        max_length=5, 
+        default='buyer',
+        help_text=_("Тип учетной записи (магазин или покупатель)"),
+    )
 
     def __str__(self):
-        return f'{self.first_name} {self.last_name}'
+        """Строковое представление с использованием имени и фамилии"""
+        return f'{self.first_name} {self.last_name}' if self.first_name else self.email
 
     class Meta:
-        verbose_name = 'Пользователь'
-        verbose_name_plural = "Список пользователей"
-        ordering = ('email',)
+        verbose_name = _('Пользователь')
+        verbose_name_plural = _("Список пользователей")
+        ordering = ('email',)# сортировка по email по умолчанию
+        # Дополнительная защита от дубликатов
+        constraints = [
+            models.UniqueConstraint(
+                fields=['email'], 
+                name='unique_email'
+            )
+        ]
 
 
 class Shop(models.Model):
