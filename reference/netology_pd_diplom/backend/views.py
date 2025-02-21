@@ -1,4 +1,5 @@
 from distutils.util import strtobool
+from typing import Any
 from rest_framework.request import Request
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -29,43 +30,44 @@ class RegisterAccount(APIView):
 
     # Регистрация методом POST
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> JsonResponse: # NEW Добавлена аннотация типов
         """
-            Process a POST request and create a new user.
+        Process a POST request and create a new user.
 
-            Args:
-                request (Request): The Django request object.
+        Args:
+            request (Request): The Django request object.
 
-            Returns:
-                JsonResponse: The response indicating the status of the operation and any errors.
-            """
-        # проверяем обязательные аргументы
+        Returns:
+            JsonResponse: The response indicating the status of the operation and any errors.
+        """
+        # проверяем, находятся ли все ключи в request.data
         if {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
 
             # проверяем пароль на сложность
-            sad = 'asd'
+            # sad = 'asd'
             try:
-                validate_password(request.data['password'])
-            except Exception as password_error:
+                validate_password(request.data['password']) # Проверка сложности пароля
+            except ValidationError as password_error: # Проверка ошибок пароля NEW
                 error_array = []
-                # noinspection PyTypeChecker
                 for item in password_error:
-                    error_array.append(item)
-                return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
+                    error_array.append(str(item)) # добавление строки (NEW) ошибок пароля в массив error_array 
+                return JsonResponse({'Status': False, 'Errors': {'password': error_array}}, status=400) # Отправка клиенту информации об ошибке ввода пароля
             else:
-                # проверяем данные для уникальности имени пользователя
-
+                # проверяем данные пользователя на валидность
                 user_serializer = UserSerializer(data=request.data)
                 if user_serializer.is_valid():
-                    # сохраняем пользователя
-                    user = user_serializer.save()
+                    user = user_serializer.save() # сохраняем данные пользователя в БД (если e-mail уникальный,
+                                                    # что проверяется в models.py в классе UserManager в момент записи в БД
+                    # Так как пароли должны храниться в безопасном виде. 
+                    # Метод set_password() автоматически хеширует пароль из запроса
+                    # с использованием алгоритма, установленного в настройках Django (по умолчанию это PBKDF2).
                     user.set_password(request.data['password'])
-                    user.save()
+                    user.save() # сохраняем пользователя и хешированный пароль
                     return JsonResponse({'Status': True})
                 else:
-                    return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
+                    return JsonResponse({'Status': False, 'Errors': user_serializer.errors}, status=400)
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}, status=400)
 
 
 class ConfirmAccount(APIView):
@@ -76,32 +78,28 @@ class ConfirmAccount(APIView):
     # Регистрация методом POST
     def post(self, request, *args, **kwargs):
         """
-                Подтверждает почтовый адрес пользователя.
+        Подтверждает почтовый адрес пользователя.
 
-                Args:
-                - request (Request): The Django request object.
+        Args:
+        - request (Request): The Django request object.
 
-                Returns:
-                - JsonResponse: The response indicating the status of the operation and any errors.
-                """
-        # проверяем обязательные аргументы
-        if {'email', 'token'}.issubset(request.data):
-
-            # ищем соответствие переданного email и token тому id-пользователя его email и токену что находится в БД
-            # наприм., в поле user модели ConfirmEmailToken указано значение FK 8, что соответствует пользователю с id=8 в связанной
-            # моделе User и некоторому токену в поле key модели ConfirmEmailToken. В моделе User пользователю с id=8 соответствует адрес из поля email. 
-            # Тем самым устанавливается соответствие между парой email-token переданной POST парой email-token, хранящейся в БД
+        Returns:
+        - JsonResponse: The response indicating the status of the operation and any errors.
+        """
+        # проверяем, находятся ли все ключи в request.data
+        if {'email', 'token'}.issubset(request.data): 
+            # Устанавливаем соответствие между парой email-token переданной POST парой email-token, хранящейся в БД
             token = ConfirmEmailToken.objects.filter(user__email=request.data['email'],
                                                      key=request.data['token']).first()
             if token:
-                token.user.is_active = True
-                token.user.save()
-                token.delete()
+                token.user.is_active = True # если токен есть, активируем нового пользователя
+                token.user.save() # и сохраняем изменеия в БД
+                token.delete() # токен удаляем в целях повышения защиты
                 return JsonResponse({'Status': True})
             else:
-                return JsonResponse({'Status': False, 'Errors': 'Неправильно указан токен или email'})
+                return JsonResponse({'Status': False, 'Errors': 'Неправильно указан токен или email'}, status=400)
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}, status=400)
 
 
 class AccountDetails(APIView):
@@ -179,26 +177,26 @@ class LoginAccount(APIView):
     # Авторизация методом POST
     def post(self, request, *args, **kwargs):
         """
-                Authenticate a user.
+        Authenticate a user.
 
-                Args:
-                    request (Request): The Django request object.
+        Args:
+            request (Request): The Django request object.
 
-                Returns:
-                    JsonResponse: The response indicating the status of the operation and any errors.
-                """
-        if {'email', 'password'}.issubset(request.data):
-            user = authenticate(request, username=request.data['email'], password=request.data['password'])
+        Returns:
+            JsonResponse: The response indicating the status of the operation and any errors.
+        """
+        if {'email', 'password'}.issubset(request.data): # проверяем, находятся ли все ключи в request.data
+            user = authenticate(request, username=request.data['email'], password=request.data['password']) # проверяем учетные данные
 
-            if user is not None:
-                if user.is_active:
-                    token, _ = Token.objects.get_or_create(user=user)
+            if user is not None: # если пользователь найден
+                if user.is_active: # если пользователь активирован (заодно в админке выбрать этот пользователь buyer или shop)
+                    token, _ = Token.objects.get_or_create(user=user) # создаем токен (этот токен идентифицирует пользователя)
 
-                    return JsonResponse({'Status': True, 'Token': token.key})
+                    return JsonResponse({'Status': True, 'Token': token.key}, status=200) # возвращаем токен клиенту
 
-            return JsonResponse({'Status': False, 'Errors': 'Не удалось авторизовать'})
+            return JsonResponse({'Status': False, 'Errors': 'Не удалось авторизовать'}, status=400) # если пользователь не найден
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}, status=400) # если не указаны все необходимые аргументы
 
 
 class CategoryView(ListAPIView):
@@ -248,7 +246,7 @@ class ProductInfoView(APIView):
         if category_id:
             query = query & Q(product__category_id=category_id)
 
-        # фильтруем и отбрасываем дуликаты
+        # фильтруем и отбрасываем дубликаты
         queryset = ProductInfo.objects.filter(
             query).select_related(
             'shop', 'product__category').prefetch_related(
@@ -411,40 +409,49 @@ class PartnerUpdate(APIView):
 
     def post(self, request, *args, **kwargs):
         """
-                Update the partner price list information.
+        Update the partner price list information.
 
-                Args:
-                - request (Request): The Django request object.
+        Args:
+        - request (Request): The Django request object.
 
-                Returns:
-                - JsonResponse: The response indicating the status of the operation and any errors.
-                """
-        if not request.user.is_authenticated:
-            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        Returns:
+        - JsonResponse: The response indicating the status of the operation and any errors.
+        """
+        if not request.user.is_authenticated: # если пользователь не авторизован
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403) # возвращаем ошибку 403 и сообщение о необходимости авторизации
 
-        if request.user.type != 'shop':
-            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
-
-        url = request.data.get('url')
-        if url:
-            validate_url = URLValidator()
+        if request.user.type != 'shop': # если пользователь не магазин
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403) # возвращаем ошибку 403 и сообщение о необходимости быть магазином (назначается в админ панеле)
+        # Загружаем товары из .yml который размещен по адресу с url
+        url = request.data.get('url') # получаем url из запроса пользователя 
+        if url: # если url указан
+            validate_url = URLValidator() # создаем валидатор для url 
             try:
-                validate_url(url)
+                validate_url(url) # проверяем валидность url
             except ValidationError as e:
-                return JsonResponse({'Status': False, 'Error': str(e)})
+                return JsonResponse({'Status': False, 'Error': str(e)}, status=400) # возвращаем ошибку 400 и сообщение об ошибке валидации url
             else:
-                stream = get(url).content
+                stream = get(url).content # получаем контент из yaml-файла размещенного по некоторому url 
 
-                data = load_yaml(stream, Loader=Loader)
+                data = load_yaml(stream, Loader=Loader) # декодируем контент и преобразуем в словарь 
 
-                shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
-                for category in data['categories']:
-                    category_object, _ = Category.objects.get_or_create(id=category['id'], name=category['name'])
-                    category_object.shops.add(shop.id)
-                    category_object.save()
-                ProductInfo.objects.filter(shop_id=shop.id).delete()
-                for item in data['goods']:
-                    product, _ = Product.objects.get_or_create(name=item['name'], category_id=item['category'])
+                shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id) # получаем или создаем магазин с названием из data['shop'] и АВТОРИЗИРОВАННЫМ пользователем request.user.id
+                
+                # МОЙ ЛИКБЕЗ:
+                # request:
+                # Это объект HttpRequest, который передается в представление в Django. Он содержит всю информацию о текущем запросе, включая данные о пользователе, пришедшие из HTTP-заголовков, параметры URL, данные и тд
+                # request.user:
+                # Это атрибут объекта request, который возвращает объект пользователя (класса User) для текущего запроса.
+                # request.user.id:
+                # Это доступ к атрибуту id объекта пользователя. Он возвращает уникальный идентификатор пользователя в базе данных. 
+
+                for category in data['categories']: # проходим по категориям в data['categories']
+                    category_object, _ = Category.objects.get_or_create(id=category['id'], name=category['name']) # получаем или создаем категорию с id и name из category
+                    category_object.shops.add(shop.id) # добавляем магазин в категорию
+                    category_object.save() # сохраняем изменения в категории 
+                ProductInfo.objects.filter(shop_id=shop.id).delete() # удаляем из прайса все загруженные в магазин shop.id товары 
+                for item in data['goods']: # проходим по товарам в data['goods']
+                    product, _ = Product.objects.get_or_create(name=item['name'], category_id=item['category']) # получаем или создаем продукт с названием item['name'] и категорией item['category']
 
                     product_info = ProductInfo.objects.create(product_id=product.id,
                                                               external_id=item['id'],
@@ -452,16 +459,16 @@ class PartnerUpdate(APIView):
                                                               price=item['price'],
                                                               price_rrc=item['price_rrc'],
                                                               quantity=item['quantity'],
-                                                              shop_id=shop.id)
-                    for name, value in item['parameters'].items():
-                        parameter_object, _ = Parameter.objects.get_or_create(name=name)
+                                                              shop_id=shop.id) # создаем информацию о продукте
+                    for name, value in item['parameters'].items(): # проходим по ключам и значениям в item['parameters']
+                        parameter_object, _ = Parameter.objects.get_or_create(name=name) # получаем или создаем параметр товара с названием name
                         ProductParameter.objects.create(product_info_id=product_info.id,
                                                         parameter_id=parameter_object.id,
-                                                        value=value)
+                                                        value=value) # создаем значение параметра товара
 
-                return JsonResponse({'Status': True})
+                return JsonResponse({'Status': True}, status=200) # возвращаем сообщение об успешном обновлении прайса 
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}, status=400) # возвращаем ошибку 400 и сообщение о необходимости указать все необходимые аргументы
 
 
 class PartnerState(APIView):

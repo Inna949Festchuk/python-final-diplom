@@ -8,20 +8,19 @@ class ContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact
         fields = ('id', 'city', 'street', 'house', 'structure', 'building', 'apartment', 'user', 'phone')
-        read_only_fields = ('id',)
+        read_only_fields = ('id',) # поле будет включено в вывод но не будет изменяться или создаваться пользователем
         extra_kwargs = {
-            'user': {'write_only': True}
+            'user': {'write_only': True} # поле user только для записи не будет возвращаться при сериализации
         }
 
-
 class UserSerializer(serializers.ModelSerializer):
-    contacts = ContactSerializer(read_only=True, many=True)
+    # Вложенный сериализатор используется для связи "один ко многим" (many=True) между пользователем и его контактами
+    contacts = ContactSerializer(read_only=True, many=True) # contacts доступны только для чтения и через этот сериализатор не изменяются
 
     class Meta:
         model = User
         fields = ('id', 'first_name', 'last_name', 'email', 'company', 'position', 'contacts')
         read_only_fields = ('id',)
-
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:

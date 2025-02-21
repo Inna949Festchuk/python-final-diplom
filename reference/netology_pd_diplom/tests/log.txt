@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.7, pytest-8.3.4, pluggy-1.5.0 -- /Users/apple/Documents/Full-stack-Python-developer/my_diplom/venv/bin/python3
+cachedir: .pytest_cache
+django: version: 5.1.6, settings: netology_pd_diplom.settings (from ini)
+rootdir: /Users/apple/Documents/Full-stack-Python-developer/my_diplom/python-final-diplom/reference/netology_pd_diplom
+configfile: pytest.ini
+plugins: django-4.10.0, mock-3.14.0, requests-mock-1.12.1
+collecting ... collected 5 items
+
+tests/test_api.py::TestPartnerUpdate::test_partner_update_permission PASSED [ 20%]
+tests/test_api.py::TestPartnerUpdate::test_unauthenticated_user PASSED   [ 40%]
+tests/test_api.py::TestPartnerUpdate::test_partner_update_invalid_url PASSED [ 60%]
+tests/test_api.py::TestPartnerUpdate::test_partner_update_missing_url PASSED [ 80%]
+tests/test_api.py::TestPartnerUpdate::test_successful_update PASSED      [100%]
+
+============================== 5 passed in 1.79s ===============================

@@ -355,7 +355,7 @@ class ConfirmEmailToken(models.Model):
         verbose_name=_("When was this token generated")
     )
 
-    # Key field, though it is not the primary key of the model
+    # Ключевое поле, хотя оно и не является первичным ключом модели
     key = models.CharField(
         _("Key"),
         max_length=64,
