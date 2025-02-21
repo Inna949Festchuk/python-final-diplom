@@ -13,4 +13,4 @@ tests/test_api.py::TestPartnerUpdate::test_partner_update_invalid_url PASSED [ 6
 tests/test_api.py::TestPartnerUpdate::test_partner_update_missing_url PASSED [ 80%]
 tests/test_api.py::TestPartnerUpdate::test_successful_update PASSED      [100%]
 
-============================== 5 passed in 1.79s ===============================
+============================== 5 passed in 1.37s ===============================

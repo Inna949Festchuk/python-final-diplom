@@ -33,6 +33,9 @@ pytest your_app/tests/test_api.py::TestRegisterAccount -v
 
 # Конкретный тестовый метод
 pytest your_app/tests/test_api.py::TestRegisterAccount::test_register_success -v
+
+# Запись лога
+pytest your_app/tests/test_api.py::TestRegisterAccount::test_register_success -v --log-cli-level=INFO
 ```
 5. Пример вывода при успешном запуске
 ```bash
