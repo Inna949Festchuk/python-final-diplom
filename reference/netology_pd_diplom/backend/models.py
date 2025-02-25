@@ -103,10 +103,16 @@ class User(AbstractUser):
     """
     # Убираем обязательные поля по умолчанию (username не используется для входа)
     REQUIRED_FIELDS = []
-    # Менеджер объектов с расширенной логикой создания пользователей, так как
-    objects = UserManager()
+
+    # Менеджер объектов с расширенной логикой создания пользователей, так как 
+    # используем email как уникальный идентификатор вместо username
+    objects = UserManager() # теперь при работе с БД через object можно использовать методы из 
+                    # кастомного менеджера UserManager()  - create_user() и create_superuser(), например 
+                    # user = User.objects.create_user() или user = User.objects.create_superuser()
+
     # используем email как уникальный идентификатор вместо username
     USERNAME_FIELD = 'email'
+
     # Основное поле для аутентификации (уникальное, обязательно для заполнения)
     email = models.EmailField(_('email address'), unique=True)
     # Дополнительные бизнес-поля (необязательные)
@@ -157,9 +163,9 @@ class User(AbstractUser):
         return f'{self.first_name} {self.last_name}' if self.first_name else self.email
 
     class Meta:
-        verbose_name = _('Пользователь')
+        verbose_name = _('Пользователь') 
         verbose_name_plural = _("Список пользователей")
-        ordering = ('email',)# сортировка по email по умолчанию
+        ordering = ('email',) # сортировка по email по умолчанию
         # Дополнительная защита от дубликатов
         constraints = [
             models.UniqueConstraint(
@@ -170,33 +176,39 @@ class User(AbstractUser):
 
 
 class Shop(models.Model):
-    objects = models.manager.Manager()
-    name = models.CharField(max_length=50, verbose_name='Название')
-    url = models.URLField(verbose_name='Ссылка', null=True, blank=True)
-    user = models.OneToOneField(User, verbose_name='Пользователь',
+ 
+    objects = models.manager.Manager() # Можно создать кастомный менеджер, который позволит при взаимодействии с базой данных
+                                # используя objects применять свои кастомные методы, но здесь используется стандартный менеджер,так как если 
+                                # провалиться внутрь него мы увидим заглушку pass, ну или какие-то собственные методы определены с помощью .from_queryset
+                                # в субклассе QuerySet 
+                                # см. https://docs.djangoproject.com/en/4.1/topics/db/managers/#managers
+                                # см. https://docs.google.com/document/d/1_zO0NaMzGqY6ohgqYxi875pghBdFho9RvKxB5fhbjSc/edit?usp=sharing
+    name = models.CharField(max_length=50, verbose_name=_('Название'))
+    url = models.URLField(verbose_name=_('Ссылка'), null=True, blank=True)
+    user = models.OneToOneField(User, verbose_name=_('Пользователь'),
                                 blank=True, null=True,
                                 on_delete=models.CASCADE)
-    state = models.BooleanField(verbose_name='статус получения заказов', default=True)
+    state = models.BooleanField(verbose_name=_('статус получения заказов'), default=True) 
 
     # filename
 
     class Meta:
-        verbose_name = 'Магазин'
-        verbose_name_plural = "Список магазинов"
-        ordering = ('-name',)
+        verbose_name = _('Магазин')
+        verbose_name_plural = _('Список магазинов')
+        ordering = ('-name',) # сортировка по названию по убыванию
 
     def __str__(self):
         return self.name
 
 
 class Category(models.Model):
-    objects = models.manager.Manager()
-    name = models.CharField(max_length=40, verbose_name='Название')
-    shops = models.ManyToManyField(Shop, verbose_name='Магазины', related_name='categories', blank=True)
+    objects = models.manager.Manager() 
+    name = models.CharField(max_length=40, verbose_name=_('Название'))
+    shops = models.ManyToManyField(Shop, verbose_name=_('Магазины'), related_name='categories', blank=True)
 
     class Meta:
-        verbose_name = 'Категория'
-        verbose_name_plural = "Список категорий"
+        verbose_name = _('Категория')
+        verbose_name_plural = _('Список категорий')
         ordering = ('-name',)
 
     def __str__(self):
@@ -205,13 +217,13 @@ class Category(models.Model):
 
 class Product(models.Model):
     objects = models.manager.Manager()
-    name = models.CharField(max_length=80, verbose_name='Название')
-    category = models.ForeignKey(Category, verbose_name='Категория', related_name='products', blank=True,
+    name = models.CharField(max_length=80, verbose_name=_('Название'))
+    category = models.ForeignKey(Category, verbose_name=_('Категория'), related_name='products', blank=True,
                                  on_delete=models.CASCADE)
 
     class Meta:
-        verbose_name = 'Продукт'
-        verbose_name_plural = "Список продуктов"
+        verbose_name = _('Продукт')
+        verbose_name_plural = _('Список продуктов')
         ordering = ('-name',)
 
     def __str__(self):
@@ -220,31 +232,31 @@ class Product(models.Model):
 
 class ProductInfo(models.Model):
     objects = models.manager.Manager()
-    model = models.CharField(max_length=80, verbose_name='Модель', blank=True)
-    external_id = models.PositiveIntegerField(verbose_name='Внешний ИД')
-    product = models.ForeignKey(Product, verbose_name='Продукт', related_name='product_infos', blank=True,
+    model = models.CharField(max_length=80, verbose_name=_('Модель'), blank=True)
+    external_id = models.PositiveIntegerField(verbose_name=_('Внешний ИД'))
+    product = models.ForeignKey(Product, verbose_name=_('Продукт'), related_name='product_infos', blank=True,
                                 on_delete=models.CASCADE)
-    shop = models.ForeignKey(Shop, verbose_name='Магазин', related_name='product_infos', blank=True,
+    shop = models.ForeignKey(Shop, verbose_name=_('Магазин'), related_name='product_infos', blank=True,
                              on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(verbose_name='Количество')
-    price = models.PositiveIntegerField(verbose_name='Цена')
-    price_rrc = models.PositiveIntegerField(verbose_name='Рекомендуемая розничная цена')
+    quantity = models.PositiveIntegerField(verbose_name=_('Количество'))
+    price = models.PositiveIntegerField(verbose_name=_('Цена'))
+    price_rrc = models.PositiveIntegerField(verbose_name=_('Рекомендуемая розничная цена'))
 
     class Meta:
-        verbose_name = 'Информация о продукте'
-        verbose_name_plural = "Информационный список о продуктах"
+        verbose_name = _('Информация о продукте')
+        verbose_name_plural = _("Информационный список о продуктах")
         constraints = [
             models.UniqueConstraint(fields=['product', 'shop', 'external_id'], name='unique_product_info'),
-        ]
+        ] # дополнительная защита от дубликатов 
 
 
 class Parameter(models.Model):
     objects = models.manager.Manager()
-    name = models.CharField(max_length=40, verbose_name='Название')
+    name = models.CharField(max_length=40, verbose_name=_('Название'))
 
     class Meta:
-        verbose_name = 'Имя параметра'
-        verbose_name_plural = "Список имен параметров"
+        verbose_name = _('Имя параметра')
+        verbose_name_plural = _('Список имен параметров')
         ordering = ('-name',)
 
     def __str__(self):
@@ -253,38 +265,38 @@ class Parameter(models.Model):
 
 class ProductParameter(models.Model):
     objects = models.manager.Manager()
-    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
+    product_info = models.ForeignKey(ProductInfo, verbose_name=_('Информация о продукте'),
                                      related_name='product_parameters', blank=True,
                                      on_delete=models.CASCADE)
-    parameter = models.ForeignKey(Parameter, verbose_name='Параметр', related_name='product_parameters', blank=True,
+    parameter = models.ForeignKey(Parameter, verbose_name=_('Параметр'), related_name='product_parameters', blank=True,
                                   on_delete=models.CASCADE)
-    value = models.CharField(verbose_name='Значение', max_length=100)
+    value = models.CharField(verbose_name=_('Значение'), max_length=100)
 
     class Meta:
-        verbose_name = 'Параметр'
-        verbose_name_plural = "Список параметров"
+        verbose_name = _('Параметр')
+        verbose_name_plural = _('Список параметров')
         constraints = [
             models.UniqueConstraint(fields=['product_info', 'parameter'], name='unique_product_parameter'),
         ]
-
+    
 
 class Contact(models.Model):
     objects = models.manager.Manager()
-    user = models.ForeignKey(User, verbose_name='Пользователь',
+    user = models.ForeignKey(User, verbose_name=_('Пользователь'),
                              related_name='contacts', blank=True,
                              on_delete=models.CASCADE)
 
-    city = models.CharField(max_length=50, verbose_name='Город')
-    street = models.CharField(max_length=100, verbose_name='Улица')
-    house = models.CharField(max_length=15, verbose_name='Дом', blank=True)
-    structure = models.CharField(max_length=15, verbose_name='Корпус', blank=True)
-    building = models.CharField(max_length=15, verbose_name='Строение', blank=True)
-    apartment = models.CharField(max_length=15, verbose_name='Квартира', blank=True)
-    phone = models.CharField(max_length=20, verbose_name='Телефон')
+    city = models.CharField(max_length=50, verbose_name=_('Город'))
+    street = models.CharField(max_length=100, verbose_name=_('Улица'))
+    house = models.CharField(max_length=15, verbose_name=_('Дом'), blank=True)
+    structure = models.CharField(max_length=15, verbose_name=_('Корпус'), blank=True)
+    building = models.CharField(max_length=15, verbose_name=_('Строение'), blank=True)
+    apartment = models.CharField(max_length=15, verbose_name=_('Квартира'), blank=True)
+    phone = models.CharField(max_length=20, verbose_name=_('Телефон'))
 
     class Meta:
-        verbose_name = 'Контакты пользователя'
-        verbose_name_plural = "Список контактов пользователя"
+        verbose_name = _('Контакты пользователя')
+        verbose_name_plural = _("Список контактов пользователя")
 
     def __str__(self):
         return f'{self.city} {self.street} {self.house}'
@@ -292,18 +304,18 @@ class Contact(models.Model):
 
 class Order(models.Model):
     objects = models.manager.Manager()
-    user = models.ForeignKey(User, verbose_name='Пользователь',
+    user = models.ForeignKey(User, verbose_name=_('Пользователь'),
                              related_name='orders', blank=True,
                              on_delete=models.CASCADE)
     dt = models.DateTimeField(auto_now_add=True)
-    state = models.CharField(verbose_name='Статус', choices=STATE_CHOICES, max_length=15)
-    contact = models.ForeignKey(Contact, verbose_name='Контакт',
+    state = models.CharField(verbose_name=_('Статус'), choices=STATE_CHOICES, max_length=15)
+    contact = models.ForeignKey(Contact, verbose_name=_('Контакт'),
                                 blank=True, null=True,
                                 on_delete=models.CASCADE)
 
     class Meta:
-        verbose_name = 'Заказ'
-        verbose_name_plural = "Список заказ"
+        verbose_name = _('Заказ')
+        verbose_name_plural = _("Список заказ")
         ordering = ('-dt',)
 
     def __str__(self):
@@ -316,27 +328,27 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     objects = models.manager.Manager()
-    order = models.ForeignKey(Order, verbose_name='Заказ', related_name='ordered_items', blank=True,
+    order = models.ForeignKey(Order, verbose_name=_('Заказ'), related_name='ordered_items', blank=True,
                               on_delete=models.CASCADE)
 
-    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте', related_name='ordered_items',
+    product_info = models.ForeignKey(ProductInfo, verbose_name=_('Информация о продукте'), related_name='ordered_items',
                                      blank=True,
                                      on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(verbose_name='Количество')
+    quantity = models.PositiveIntegerField(verbose_name=_('Количество'))
 
     class Meta:
-        verbose_name = 'Заказанная позиция'
-        verbose_name_plural = "Список заказанных позиций"
+        verbose_name = _('Заказанная позиция')
+        verbose_name_plural = _("Список заказанных позиций")
         constraints = [
             models.UniqueConstraint(fields=['order_id', 'product_info'], name='unique_order_item'),
-        ]
+        ] 
 
 
 class ConfirmEmailToken(models.Model):
     objects = models.manager.Manager()
     class Meta:
-        verbose_name = 'Токен подтверждения Email'
-        verbose_name_plural = 'Токены подтверждения Email'
+        verbose_name = _('Токен подтверждения Email')
+        verbose_name_plural = _('Токены подтверждения Email')
 
     @staticmethod
     def generate_key():
@@ -347,12 +359,12 @@ class ConfirmEmailToken(models.Model):
         User,
         related_name='confirm_email_tokens',
         on_delete=models.CASCADE,
-        verbose_name=_("The User which is associated to this password reset token")
+        verbose_name=_('The User which is associated to this password reset token')
     )
 
     created_at = models.DateTimeField(
         auto_now_add=True,
-        verbose_name=_("When was this token generated")
+        verbose_name=_('When was this token generated')
     )
 
     # Ключевое поле, хотя оно и не является первичным ключом модели
@@ -369,4 +381,4 @@ class ConfirmEmailToken(models.Model):
         return super(ConfirmEmailToken, self).save(*args, **kwargs)
 
     def __str__(self):
-        return "Password reset token for user {user}".format(user=self.user)
+        return _("Password reset token for user {user}").format(user=self.user)

@@ -16,8 +16,10 @@ from unittest.mock import patch # для работы с моками
 # from django.core.exceptions import ValidationError
 from backend.models import Shop, Category, Product, ProductInfo, Order, Contact, ConfirmEmailToken
 
+
 User = get_user_model()
 client = APIClient()
+
 
 # Тесты для RegisterAccount (регистрация пользователя)
 @pytest.mark.django_db # сообщает системе тестирования pytest, что данный тест будет взаимодействовать с базой данных
@@ -78,7 +80,7 @@ class TestConfirmAccount(APITestCase):
         user = baker.make(User, email='test@test.com', is_active=False) # создаем тестового пользователя
         token = baker.make(ConfirmEmailToken, user=user) # тестовый токен не создаем а передаем 'wrong_token'
         url = reverse('backend:user-register-confirm') # получаем url эндпоинта ConfirmAccount из пространства имен
-        data = {'email': user.email, 'token': 'wrong_token'} # передаем неправильный токен 'wrong_token'
+        data = {'email': 'test@test.com', 'token': 'wrong_token'} # передаем неправильный токен 'wrong_token'
         response = self.client.post(url, data) # отправляем запрос
         assert response.status_code == 400 # проверяем код ответа (должна быть ошибка 400)
         assert 'Errors' in response.json() # проверяем наличие ключа 'Errors'
@@ -99,6 +101,7 @@ class TestConfirmAccount(APITestCase):
         # так как когда мы создавали тестового пользователя он был is_active=False
         assert response.status_code == 200 # проверяем код ответа
         assert user.is_active is True # проверяем АКТИВАЦИЮ пользователя (пользователь должен быть активирован)
+
 
 # Тесты для LoginAccount (авторизация пользователя)
 @pytest.mark.django_db
@@ -170,7 +173,6 @@ class TestPartnerUpdate:
         response = client.post(url, data)
         assert response.status_code == 400
         assert 'Error' in response.json()  # Текст ошибки может зависеть от URLValidator (см. views.py)
-    
 
     def test_partner_update_missing_url(self, client):
         # Ошибка: не указан параметр `url` прайс-листа партнера для загрузки товаров

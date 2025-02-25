@@ -8,49 +8,58 @@ from django_rest_passwordreset.signals import reset_password_token_created
 
 from backend.models import ConfirmEmailToken, User
 
-new_user_registered = Signal()
+# Сигналы для отслеживания событий, таких как создание нового 
+# пользователя и сброс пароля. Каждый раз, когда происходит событие, соответствующий 
+# обработчик выполняет действия, например, отправляет электронное письмо.
 
-new_order = Signal()
+new_user_registered = Signal() # сигнал для регистрации нового пользователя
+
+new_order = Signal() # сигнал для обновления статуса заказа
 
 
 @receiver(reset_password_token_created)
-def password_reset_token_created(sender, instance, reset_password_token, **kwargs):
+def password_reset_token_created(sender: Type[User], instance: User, reset_password_token: ConfirmEmailToken, **kwargs) -> None:
     """
-    Отправляем письмо с токеном для сброса пароля
-    When a token is created, an e-mail needs to be sent to the user
-    :param sender: View Class that sent the signal
-    :param instance: View Instance that sent the signal
-    :param reset_password_token: Token Model Object
-    :param kwargs:
-    :return:
+    Отправляет электронное письмо пользователю, когда происходит сброс пароля.
+    
+    Args:
+        sender: отправитель - модель User 
+        instance: пользователь, для которого происходит сброс пароля
+        reset_password_token: токен для сброса пароля
+        **kwargs: дополнительные параметры
     """
-    # send an e-mail to the user
-
+    # send an e-mail to the user 
     msg = EmailMultiAlternatives(
         # title:
-        f"Password Reset Token for {reset_password_token.user}",
+        f"Токен сброса пароля для {reset_password_token.user}", 
         # message:
         reset_password_token.key,
         # from:
         settings.EMAIL_HOST_USER,
         # to:
         [reset_password_token.user.email]
-    )
-    msg.send()
+    ) # отправляем письмо с токеном для сброса пароля 
+    msg.send() # отправляем письмо
 
 
 @receiver(post_save, sender=User)
-def new_user_registered_signal(sender: Type[User], instance: User, created: bool, **kwargs):
+def new_user_registered_signal(sender: Type[User], instance: User, created: bool, **kwargs) -> None:
     """
-     отправляем письмо с подтрердждением почты
+    Отправляет письмо с токеном для подтверждения электронного адреса, 
+    когда пользователь регистрируется.
+    Args:
+        sender (Type[User]): отправитель - модель User 
+        instance (User): новосозданный пользователь
+        created (bool): флаг, что пользователь был создан
+        **kwargs: дополнительные параметры
     """
-    if created and not instance.is_active:
-        # send an e-mail to the user
-        token, _ = ConfirmEmailToken.objects.get_or_create(user_id=instance.pk)
-
+    if created and not instance.is_active: # если пользователь создан и не активен
+        # создаем токен для подтверждения электронного адреса 
+        token, _ = ConfirmEmailToken.objects.get_or_create(user_id=instance.pk) # возвращает кортеж, содержащий два элемента: сам объект и булево значение, 
+                                                                        # указывающее, был ли он создан или уже существовал (заглушка _).
         msg = EmailMultiAlternatives(
             # title:
-            f"Password Reset Token for {instance.email}",
+            f"Токен подтверждения электронного адреса для {instance.email}",
             # message:
             token.key,
             # from:
@@ -62,12 +71,16 @@ def new_user_registered_signal(sender: Type[User], instance: User, created: bool
 
 
 @receiver(new_order)
-def new_order_signal(user_id, **kwargs):
-    """
-    отправяем письмо при изменении статуса заказа
-    """
+def new_order_signal(user_id: int, **kwargs) -> None:
     # send an e-mail to the user
-    user = User.objects.get(id=user_id)
+    """
+    Отправляет электронное письмо пользователю, когда происходит обновление статуса заказа.
+    
+    Args:
+        user_id (int): id пользователя, которому будет отправлено письмо
+        **kwargs: дополнительные параметры
+    """
+    user = User.objects.get(id=user_id) 
 
     msg = EmailMultiAlternatives(
         # title:
@@ -78,5 +91,5 @@ def new_order_signal(user_id, **kwargs):
         settings.EMAIL_HOST_USER,
         # to:
         [user.email]
-    )
+    ) 
     msg.send()

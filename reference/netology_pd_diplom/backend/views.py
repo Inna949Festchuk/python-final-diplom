@@ -199,7 +199,7 @@ class LoginAccount(APIView):
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}, status=400) # если не указаны все необходимые аргументы
 
 
-class CategoryView(ListAPIView):
+class CategoryView(ListAPIView): 
     """
     Класс для просмотра категорий
     """
@@ -211,7 +211,7 @@ class ShopView(ListAPIView):
     """
     Класс для просмотра списка магазинов
     """
-    queryset = Shop.objects.filter(state=True)
+    queryset = Shop.objects.filter(state=True) # фильтруем магазины по статусу получения заказов (по умолчанию true)
     serializer_class = ShopSerializer
 
 
@@ -484,14 +484,14 @@ class PartnerState(APIView):
     # получить текущий статус
     def get(self, request, *args, **kwargs):
         """
-               Retrieve the state of the partner.
+        Retrieve the state of the partner.
 
-               Args:
-               - request (Request): The Django request object.
+        Args:
+        - request (Request): The Django request object.
 
-               Returns:
-               - Response: The response containing the state of the partner.
-               """
+        Returns:
+        - Response: The response containing the state of the partner.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -521,7 +521,7 @@ class PartnerState(APIView):
         state = request.data.get('state')
         if state:
             try:
-                Shop.objects.filter(user_id=request.user.id).update(state=strtobool(state))
+                Shop.objects.filter(user_id=request.user.id).update(state=strtobool(state)) # преобразует строку в логическое значение True или False 
                 return JsonResponse({'Status': True})
             except ValueError as error:
                 return JsonResponse({'Status': False, 'Errors': str(error)})
