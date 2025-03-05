@@ -326,7 +326,7 @@ class Order(models.Model):
     #     return self.ordered_items.aggregate(total=Sum("quantity"))["total"]
 
 
-class OrderItem(models.Model):
+class OrderItem(models.Model): # связывает заказ с конкретными товарами (`ProductInfo`) и количеством
     objects = models.manager.Manager()
     order = models.ForeignKey(Order, verbose_name=_('Заказ'), related_name='ordered_items', blank=True,
                               on_delete=models.CASCADE)

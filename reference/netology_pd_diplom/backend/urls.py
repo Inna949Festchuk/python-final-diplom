@@ -15,8 +15,10 @@ urlpatterns = [
     path('user/details', AccountDetails.as_view(), name='user-details'),
     path('user/contact', ContactView.as_view(), name='user-contact'),
     path('user/login', LoginAccount.as_view(), name='user-login'),
-    path('user/password_reset', reset_password_request_token, name='password-reset'),
-    path('user/password_reset/confirm', reset_password_confirm, name='password-reset-confirm'),
+    path('user/password_reset', reset_password_request_token, name='password-reset'), # Этот путь определяет URL, по которому пользователи могут запрашивать сброс пароля, 
+                                                                            # на указанный пользователем маил высылается письмо с токеном сброса пароля
+    path('user/password_reset/confirm', reset_password_confirm, name='password-reset-confirm'), # Этот путь определяет URL, по которому пользователи могут подтверждать сброс пароля.
+                                                                                    # путем отправки токена сброса пароля
     path('categories', CategoryView.as_view(), name='categories'),
     path('shops', ShopView.as_view(), name='shops'),
     path('products', ProductInfoView.as_view(), name='shops'),

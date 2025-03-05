@@ -70,7 +70,7 @@ class TestRegisterAccount(APITestCase):
         assert response.json()['Status'] is True # проверка значения ключа 'Status'
 
 
-# Тесты для ConfirmAccount (аутентификация пользователя (подтверждение учетной записи и активация учетной записи))
+# Тесты для ConfirmAccount (подтверждение учетной записи и активация учетной записи)
 @pytest.mark.django_db # сообщает системе тестирования pytest, что данный тест будет взаимодействовать с базой данных
 class TestConfirmAccount(APITestCase):
     def test_confirm_invalid_token(self):
@@ -87,7 +87,7 @@ class TestConfirmAccount(APITestCase):
 
     def test_confirm_success(self):
         """
-        Тестирует, что подтверждение учетной записи с действительным токеном аутентификации 
+        Тестирует, что подтверждение учетной записи с действительным токеном 
         приводит к ответу 200 и активации учетной записи пользователя.
         """
         user = baker.make(User, email='test@test.com', is_active=False) # создаем тестового пользователя
@@ -96,7 +96,7 @@ class TestConfirmAccount(APITestCase):
         data = {'email': 'test@test.com', 'token': token.key} # пользователь получил на е-маил, правильный токен 
         response = self.client.post(url, data) # и передает его серверному приложению на эндпоинт ConfirmAccount
         user.refresh_from_db() # обновляем объект user
-        # После успешного выполнения операции подтверждения токена, которая активирует пользователя, 
+        # После успешного выполнения операции подтверждения email, которая активирует пользователя, 
         # нужно обновить объект пользователя, чтобы отразить изменения, сохраненные в базе данных is_active=True, 
         # так как когда мы создавали тестового пользователя он был is_active=False
         assert response.status_code == 200 # проверяем код ответа
@@ -122,8 +122,7 @@ class TestLoginAccount(APITestCase):
     def test_login_success(self):
         """
         Тесты, которые показывают, что при входе активированного пользователя в систему 
-        с действительными учетными данными (e-mail, пароль) серверное приложение возвращает ответ 200 и токен -
-        этот токен содержит информацию о пользователе и его правах (магазин или покупатель).
+        с действительными учетными данными (e-mail, пароль) серверное приложение возвращает ответ 200 и токен.
         """
         user = baker.make(User, email='test@test.com', password='TestPass123!', is_active=True) # создаем тестового активированного пользователя
         user.set_password(user.password) # Хешируем тестовый пароль
@@ -145,7 +144,7 @@ class TestPartnerUpdate:
     def test_partner_update_permission(self, client):
         # Пользователь не является 'shop'
         user = baker.make(User, type='buyer') # назначаем пользователю тип 'buyer' - покупатель 
-                # (он должен быть аутентифицирован (токен), активирован, выбран его тип (buyer или shop) и авторизирован (токен))
+                # (он должен быть зарегистрирован (токен), активирован, выбран его тип (buyer или shop) и авторизирован (токен))
         
         client.force_authenticate(user=user) # Принудительная аутентификация пользователя для выполнения запроса.
         # Это позволяет обходить процесс фактической аутентификации, 
@@ -156,7 +155,7 @@ class TestPartnerUpdate:
         assert response.json()['Error'] == 'Только для магазинов' # и текст ошибки
 
     def test_unauthenticated_user(self, client):
-        # Неаутентифицированный и неактивированный и неавторизированный пользователь (если следовать 'user flow')
+        # Незарегистрированный, неактивированный и неавторизированный пользователь (если следовать 'user flow')
         url = reverse('backend:partner-update') 
         response = client.post(url, {}) # отправляем POST-запрос на эндпоинт PartnerUpdate !БЕЗ ТОКЕНА В HEADERS!
         assert response.status_code == 403 # проверяем код ответа

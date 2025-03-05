@@ -73,7 +73,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderItemCreateSerializer(OrderItemSerializer):
-    product_info = ProductInfoSerializer(read_only=True)
+    product_info = ProductInfoSerializer(read_only=True) 
 
 
 class OrderSerializer(serializers.ModelSerializer):
