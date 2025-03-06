@@ -27,12 +27,34 @@ curl --location --request POST 'http://localhost:8000/api/v1/user/register' \
   - Эндпоинт: **POST `/user/register/confirm`**
   - Пользователь подтверждает свою почту, передавая в теле запроса токен подтверждения, чтобы активировать учетную запись (`is_active`). При этом токен, в целях безопасности, удаляется из базы данных.
 
+```bash
+curl --location --request POST 'http://localhost:8000/api/v1/user/register/confirm' \
+--form 'email="dilmah949dilma@gmail.com"' \
+--form 'token="c335efb7aef8e3d3f0df5951450"'
+```
+```bash
+{
+    "Status": true
+}
+```
+
 ---
 
 ### 2. **Авторизация**
 - Эндпоинт: **POST `/user/login`**
   - Пользователь вводит логин (email) и пароль для входа в систему. После успешного входа система проверяет активность учетной записи (`is_active`) и формирует токен для аутентификации. Этот токен далее передается в заголовке `Authorization` во всех последующих запросах, чтобы идентифицировать пользователя.
 
+```bash
+curl --location --request POST 'http://localhost:8000/api/v1/user/login' \
+--form 'email="dilmah949dilma@gmail.com"' \
+--form 'password="qwer1234A"'
+```
+```bash
+{
+    "Status": true,
+    "Token": "a7c187f5d0bfc1ff0f8050d761dc216d8dd1a2eb"
+}
+```
 ---
 
 ### 3. **Просмотр и редактирование данных пользователя**
