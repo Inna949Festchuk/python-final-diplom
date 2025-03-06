@@ -800,8 +800,9 @@ class OrderView(APIView):
                     print(error)
                     return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
                 else:
-                    if is_updated:
-                        new_order.send(sender=self.__class__, user_id=request.user.id)
+                    if is_updated: # если заказ был обновлен
+                        new_order.send(sender=self.__class__, user_id=request.user.id) # отправляем уведомление магазину на его email
+                                                            # об обновлении статуса заказа с "в корзине" на "новый"
                         return JsonResponse({'Status': True})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
