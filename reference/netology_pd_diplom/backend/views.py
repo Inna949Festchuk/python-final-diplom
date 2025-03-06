@@ -725,7 +725,7 @@ class ContactView(APIView):
 
 class OrderView(APIView):
     """
-    Класс для получения и размешения заказов пользователями
+    Класс для получения и размешения заказов пользователями (покупателями)
     Methods:
     - get: Retrieve the details of a specific order.
     - post: Create a new order.
@@ -761,24 +761,28 @@ class OrderView(APIView):
     # разместить заказ из корзины
     def post(self, request, *args, **kwargs):
         """
-               Put an order and send a notification.
+        Оформить заказ и отправить уведомление магазину.
 
-               Args:
-               - request (Request): The Django request object.
+        Args:
+        - request (Request): The Django request object.
 
-               Returns:
-               - JsonResponse: The response indicating the status of the operation and any errors.
-               """
-        if not request.user.is_authenticated:
+        Returns:
+        - JsonResponse: The response indicating the status of the operation and any errors.
+        """
+        if not request.user.is_authenticated: # если пользователь не аутентифицирован
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
-        if {'id', 'contact'}.issubset(request.data):
-            if request.data['id'].isdigit():
-                try:
+        if {'id', 'contact'}.issubset(request.data): # если id заказа и id контакта указаны в запросе
+            if request.data['id'].isdigit(): # если id заказа является числом
+                try: # пытаемся обновить заказ
                     is_updated = Order.objects.filter(
                         user_id=request.user.id, id=request.data['id']).update(
                         contact_id=request.data['contact'],
-                        state='new')
+                        state='new') # фильтруем заказы, принадлежащие текущему аутентифицированному пользователю
+                                # по идентификатору заказа, который передан в запросе
+                                # в соответствии с переданным идентификатором контакта обновляем поле contact_id,
+                                # устанавливая связь заказа с контактом пользователя-покупателя
+                                # меняем статус заказа c "basket" на "new"
                 except IntegrityError as error:
                     print(error)
                     return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
