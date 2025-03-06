@@ -52,7 +52,7 @@ curl --location --request POST 'http://localhost:8000/api/v1/user/login' \
 ```bash
 {
     "Status": true,
-    "Token": "a7c187f5d0bfc1ff0f8050d761dc216d8dd1a2eb"
+    "Token": "e77fbc201870a229252b67a35ed1600e6a60bbd5"
 }
 ```
 ---
@@ -60,7 +60,7 @@ curl --location --request POST 'http://localhost:8000/api/v1/user/login' \
 ### 3. **Просмотр и редактирование данных пользователя**
 - Эндпоинт: **GET, POST `/user/details`**
   - Зарегистрированный пользователь получает информацию о своем профиле и может редактировать ее методом POST.
-  - 
+  
 **Просмотр данных пользователя о своем профиле**
 Ключ `contacts` содержит список контактных данных пользователя и заполняется после добавления пользователем своего контакта (см. пункт 4)
 ```bash
@@ -559,8 +559,20 @@ curl --location --request PUT 'http://localhost:8000/api/v1/basket' \
 
 #### 5.5. **Оформление заказа**
 - Эндпоинт: **POST `/order`**
-  - Покупатель отправляет форму с контактными данными. Заказ меняет статус на `state="new"` и становится доступен для обработки магазином.
+  - Покупатель отправляет форму с контактными данными (`id` - id заказа и `contact` - id контактной информации). Заказ меняет статус на `state="new"` и становится доступен для обработки магазином.
+```bash
+curl --location --request POST 'http://localhost:8000/api/v1/order' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Token e77fbc201870a229252b67a35ed1600e6a60bbd5' \
+--form 'id="1"' \
+--form 'contact="3"'
+```
 
+```bash
+{
+    "Status": true
+}
+```
 ---
 
 ### 6. **Работа с заказами**
