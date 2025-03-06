@@ -246,11 +246,16 @@ class ProductInfoView(APIView):
 
         # фильтруем объекты ProductInfo по сформированному запросу query и отбрасываем дубликаты
         queryset = ProductInfo.objects.filter(
-            query).select_related( # информация о связанных магазинах (shop) и категориях продуктов (product__category) будет загружена в одном запросе к БД
+            query).select_related( # информация о связанных магазинах (shop) и категориях продуктов (product__category) 
+                                # будет загружена джоином с основным объектом ProductInfo (т.е. в одном запросе к БД что эффективно)
             'shop', 'product__category').prefetch_related( # В отличие от select_related, метод выполняет отдельные запросы для получения связанных объектов, 
-                                                # а затем соединяет их в Python. Здесь он извлекает параметры каждого товара и их значения.
+                                                # а затем соединяет их в Python с объектом ProductInfo. 
+                                                # Здесь он извлекает параметры каждого продукта и их значения и соединяет с информацией о продукте.
             'product_parameters__parameter').distinct() # удаления дублирующихся записей из результата выборки
-        
+
+        # ПОМЕТКА! prefetch_related - выполняет отдельные запросы для основной модели и для связанных объектов. Затем результаты объединяются в Python.
+        # ПОМЕТКА! select_related - использует SQL JOIN для выполнения запроса и получения связанных объектов одновременно с основным объектом.
+
         # ЗАМЕТКА
         # Жадная загрузка (чтобы уменьшить количество обращений к базе данных)
         # всех связей из поля 'shop' (это id магазинов модели Shop) и из поля 'product' -
@@ -259,7 +264,6 @@ class ProductInfoView(APIView):
 
         # поле 'product_parameters' содержит id, связывающие значения параметров продуктов, 
         # с ProductInfo, а поле 'parameter' содержит id названий этих параметров из модели Parametr.
-
 
         serializer = ProductInfoSerializer(queryset, many=True)
 
@@ -600,6 +604,9 @@ class PartnerOrders(APIView):
             'ordered_items__product_info__product__category',
             'ordered_items__product_info__product_parameters__parameter').select_related('contact').annotate(
             total_sum=Sum(F('ordered_items__quantity') * F('ordered_items__product_info__price'))).distinct()
+        
+        # ПОМЕТКА! prefetch_related - выполняет отдельные запросы для основной модели и для связанных объектов. Затем результаты объединяются в Python.
+        # ПОМЕТКА! select_related - использует SQL JOIN для выполнения запроса и получения связанных объектов одновременно с основным объектом.
 
         serializer = OrderSerializer(order, many=True)
         return Response(serializer.data)
@@ -739,26 +746,32 @@ class OrderView(APIView):
     # получить мои заказы
     def get(self, request, *args, **kwargs):
         """
-               Retrieve the details of user orders.
+        Получить данные о заказах пользователя(покупателя).
 
-               Args:
-               - request (Request): The Django request object.
+        Args:
+        - request (Request): The Django request object.
 
-               Returns:
-               - Response: The response containing the details of the order.
-               """
-        if not request.user.is_authenticated:
+        Returns:
+        - Response: The response containing the details of the order.
+        """
+        if not request.user.is_authenticated: # 
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        # фильтруем заказы по id пользователя(покупателя)
+        # исключая из результата фильтрации заказы со статусом "в корзине"...
         order = Order.objects.filter(
-            user_id=request.user.id).exclude(state='basket').prefetch_related(
-            'ordered_items__product_info__product__category',
-            'ordered_items__product_info__product_parameters__parameter').select_related('contact').annotate(
-            total_sum=Sum(F('ordered_items__quantity') * F('ordered_items__product_info__price'))).distinct()
+            user_id=request.user.id).exclude(state='basket').prefetch_related( # добавляем связанную предварительную выборку:
+            'ordered_items__product_info__product__category', # заказанные_товары__информация_о_продукте__категория_продукта,
+                                    # заказанные_товары__информация_о_продукте__параметры_продукта_параметр
+            'ordered_items__product_info__product_parameters__parameter').select_related('contact').annotate( # выбираем связанные контакты и добавляем аннотацию 
+            total_sum=Sum(F('ordered_items__quantity') * F('ordered_items__product_info__price'))).distinct() # рассчитываем общую стоимость заказа, 
+                                                                                                # перемножая количество и цену товара и удаляем дубликаты из результата выборки
+        # ПОМЕТКА! prefetch_related - выполняет отдельные запросы для основной модели и для связанных объектов. Затем результаты объединяются в Python.
+        # ПОМЕТКА! select_related - использует SQL JOIN для выполнения запроса и получения связанных объектов одновременно с основным объектом.
 
         serializer = OrderSerializer(order, many=True)
         return Response(serializer.data)
 
-    # разместить заказ из корзины
+    # разместить новый заказ из корзины
     def post(self, request, *args, **kwargs):
         """
         Оформить заказ и отправить уведомление магазину.

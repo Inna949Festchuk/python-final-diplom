@@ -512,7 +512,7 @@ curl --location --request GET 'http://localhost:8000/api/v1/basket' \
         "state": "basket",
         "dt": "2025-02-28T21:05:14.051909Z",
         "total_sum": 59400,
-        "contact": null
+        "contact": null # Заполнить при добавлении контакта
     }
 ]
 ```
@@ -580,6 +580,99 @@ curl --location --request POST 'http://localhost:8000/api/v1/order' \
 #### 6.1. **Просмотр своих заказов (покупатель)**
 - Эндпоинт: **GET `/order`**
   - Покупатель видит список своих заказов, их статусы (`new`, `confirmed`, `sent`, `delivered`, `canceled`) и детали.
+
+```bash
+curl --location --request GET 'http://localhost:8000/api/v1/order' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Token e77fbc201870a229252b67a35ed1600e6a60bbd5'
+```
+
+<details>
+<summary>Нажмите, чтобы развернуть</summary>
+
+```bash
+[
+    {
+        "id": 1,
+        "ordered_items": [
+            {
+                "id": 5,
+                "product_info": {
+                    "id": 25,
+                    "model": "lg/oled-cx",
+                    "product": {
+                        "name": "LG OLED CX 55\" 4K UHD Smart TV",
+                        "category": "Телевизоры"
+                    },
+                    "shop": 1,
+                    "quantity": 7,
+                    "price": 1800,
+                    "price_rrc": 1999,
+                    "product_parameters": [
+                        {
+                            "parameter": "Screen Size (inches)",
+                            "value": "55"
+                        },
+                        {
+                            "parameter": "Resolution (pixels)",
+                            "value": "3840x2160"
+                        },
+                        {
+                            "parameter": "Smart TV",
+                            "value": "True"
+                        }
+                    ]
+                },
+                "quantity": 3
+            },
+            {
+                "id": 6,
+                "product_info": {
+                    "id": 26,
+                    "model": "sony/bravia-x900h",
+                    "product": {
+                        "name": "Sony Bravia X900H 75\" 4K UHD Smart TV",
+                        "category": "Телевизоры"
+                    },
+                    "shop": 1,
+                    "quantity": 3,
+                    "price": 3000,
+                    "price_rrc": 3499,
+                    "product_parameters": [
+                        {
+                            "parameter": "Screen Size (inches)",
+                            "value": "75"
+                        },
+                        {
+                            "parameter": "Resolution (pixels)",
+                            "value": "3840x2160"
+                        },
+                        {
+                            "parameter": "Smart TV",
+                            "value": "True"
+                        }
+                    ]
+                },
+                "quantity": 1
+            }
+        ],
+        "state": "new",
+        "dt": "2025-02-28T21:05:14.051909Z",
+        "total_sum": 8400,
+        "contact": {
+            "id": 3,
+            "city": "Калининград",
+            "street": "Бахчисарайска",
+            "house": "26",
+            "structure": "4",
+            "building": "",
+            "apartment": "",
+            "phone": "89210088233"
+        }
+    }
+]
+```
+</details>
 
 #### 6.2. **Получение заказов (магазин)**
 - Эндпоинт: **GET `/partner/orders`**
