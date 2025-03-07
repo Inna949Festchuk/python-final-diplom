@@ -560,7 +560,9 @@ curl --location --request PUT 'http://localhost:8000/api/v1/basket' \
 #### 5.5. **Оформление заказа**
 - Эндпоинт: **POST `/order`**
   - Покупатель отправляет форму с контактными данными (`id` - id заказа и `contact` - id контактной информации). Заказ меняет статус на `state="new"` и становится доступен для обработки магазином.
+  
 - Событие: При изменении состояния заказа отправляется e-mail и покупателю и магазину с уведомлением об изменении статуса заказа с сообщением "Заказ сформирован".
+  
 ```bash
 curl --location --request POST 'http://localhost:8000/api/v1/order' \
 --header 'Content-Type: application/x-www-form-urlencoded' \
@@ -679,9 +681,105 @@ curl --location --request GET 'http://localhost:8000/api/v1/order' \
 - Эндпоинт: **GET `/partner/orders`**
   - Магазин получает список новых заказов, поступивших от покупателей, для обработки.
 
+```bash
+curl --location --request GET 'http://localhost:8000/api/v1/partner/orders' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Token 53a4742c02627553d1dbee0268815f72d1c40b5b'
+```
+
+<details>
+<summary>Нажмите, чтобы развернуть</summary>
+
+```bash
+[
+    {
+        "id": 1,
+        "ordered_items": [
+            {
+                "id": 5,
+                "product_info": {
+                    "id": 25,
+                    "model": "lg/oled-cx",
+                    "product": {
+                        "name": "LG OLED CX 55\" 4K UHD Smart TV",
+                        "category": "Телевизоры"
+                    },
+                    "shop": 1,
+                    "quantity": 7,
+                    "price": 1800,
+                    "price_rrc": 1999,
+                    "product_parameters": [
+                        {
+                            "parameter": "Screen Size (inches)",
+                            "value": "55"
+                        },
+                        {
+                            "parameter": "Resolution (pixels)",
+                            "value": "3840x2160"
+                        },
+                        {
+                            "parameter": "Smart TV",
+                            "value": "True"
+                        }
+                    ]
+                },
+                "quantity": 3
+            },
+            {
+                "id": 6,
+                "product_info": {
+                    "id": 26,
+                    "model": "sony/bravia-x900h",
+                    "product": {
+                        "name": "Sony Bravia X900H 75\" 4K UHD Smart TV",
+                        "category": "Телевизоры"
+                    },
+                    "shop": 1,
+                    "quantity": 3,
+                    "price": 3000,
+                    "price_rrc": 3499,
+                    "product_parameters": [
+                        {
+                            "parameter": "Screen Size (inches)",
+                            "value": "75"
+                        },
+                        {
+                            "parameter": "Resolution (pixels)",
+                            "value": "3840x2160"
+                        },
+                        {
+                            "parameter": "Smart TV",
+                            "value": "True"
+                        }
+                    ]
+                },
+                "quantity": 1
+            }
+        ],
+        "state": "new",
+        "dt": "2025-02-28T21:05:14.051909Z",
+        "total_sum": 8400,
+        "contact": {
+            "id": 3,
+            "city": "Калининград",
+            "street": "Бахчисарайска",
+            "house": "26",
+            "structure": "4",
+            "building": "",
+            "apartment": "",
+            "phone": "89210088233"
+        }
+    }
+]
+```
+</details>
+
 #### 6.3. **Обновление состояния заказа** НЕ РЕАЛИЗОВАНО (делается в административной панели)
-- Эндпоинт: **PUT `/partner/orders`**
+- Эндпоинт: **POST `/partner/orders`**
   - Магазин меняет статус заказа на значения `"confirmed"`, `"assembled"`, `"sent"`, `"delivered"` или `"canceled"` в соответствии с этапами его обработки.
+  
+  *В РАЗРАБОТКЕ*
+
 - Событие: При изменении состояния заказа отправляется e-mail пользователю с уведомлением о статусе заказа. 
 
 ---
@@ -692,9 +790,50 @@ curl --location --request GET 'http://localhost:8000/api/v1/order' \
 - Эндпоинт: **POST `/partner/update`**
   - Магазин добавляет или обновляет информацию о своих товарах, ценах и наличии.
 
+```bash
+curl --location --request POST 'http://localhost:8000/api/v1/partner/update' \
+--header 'Authorization: Token 53a4742c02627553d1dbee0268815f72d1c40b5b' \
+--form 'url="https://raw.githubusercontent.com/netology-code/python-final-diplom/master/data/shop1.yaml"' # это адрес прайса поставщика товаров
+```
+
+```bash
+{
+    "Status": true
+}
+```
+
 #### 7.2. **Изменение статуса магазина**
-- Эндпоинт: **PUT `/partner/state`**
-  - Владелец магазина может включать или отключать свой магазин, чтобы управлять возможностью принимать новые заказы (`state=True/False`).****
+- Эндпоинт: **GET, POST `/partner/state`**
+  - Владелец магазина может открывать или закрывать свой магазин, чтобы управлять возможностью принимать новые заказы (`state=True/False`).
+
+**Просмотреть статус магазина**
+
+```bash
+curl --location --request GET 'http://localhost:8000/api/v1/partner/state' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Token 53a4742c02627553d1dbee0268815f72d1c40b5b'
+```
+
+```bash
+{
+    "id": 1,
+    "name": "Связной",
+    "state": true
+}
+```
+**Изменить (открыть/закрыть) статус магазина**
+
+```bash
+curl --location --request POST 'http://localhost:8000/api/v1/partner/state' \
+--header 'Authorization: Token 53a4742c02627553d1dbee0268815f72d1c40b5b' \
+--form 'state="off"' # Или state="on"
+```
+
+```bash
+{
+    "Status": true
+}
+```
 
 ---
 
