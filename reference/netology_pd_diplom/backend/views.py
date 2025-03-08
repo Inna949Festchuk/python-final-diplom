@@ -657,9 +657,9 @@ class PartnerOrders(APIView):
 
             # Поиск заказа, связанного с магазином пользователя
             order = Order.objects.filter(
-                id=order_id,
-                ordered_items__product_info__shop__user_id=request.user.id
-            ).first()
+                id=order_id, # по id заказа
+                ordered_items__product_info__shop__user_id=request.user.id # по пользователю(магазину)
+            ).first() # получаем первый найденный заказ соответствующий условиям (жадность)
 
             if not order:
                 return JsonResponse(
@@ -678,7 +678,7 @@ class PartnerOrders(APIView):
             valid_states = dict(Order.STATE_CHOICES).keys()
             if new_state not in valid_states:
                 return JsonResponse(
-                    {'Status': False, 'Error': 'Некорректный статус заказа'}, 
+                    {'Status': False, 'Error': f'Некорректный статус заказа. Укажите значения из {dict(Order.STATE_CHOICES)}'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -869,39 +869,42 @@ class OrderView(APIView):
     def post(self, request, *args, **kwargs):
         """
         Разместить новый заказ из корзины и отправить уведомление магазину.
-
         Args:
         - request (Request): The Django request object.
-
         Returns:
         - JsonResponse: The response indicating the status of the operation and any errors.
         """
         
-        if not request.user.is_authenticated:
+        if not request.user.is_authenticated: # проверяем токен аутентификации в запросе
             return JsonResponse(
                 {'Status': False, 'Error': 'Log in required'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        if {'id', 'contact'}.issubset(request.data):
+        if {'id', 'contact'}.issubset(request.data): # проверка наличия в запросе id заказа и контактных данных покупателя
             if request.data['id'].isdigit():
                 try:
                     # Получаем объект заказа
                     order = Order.objects.get(
-                        user_id=request.user.id, 
-                        id=request.data['id']
+                        user_id=request.user.id, # по id покупателя
+                        id=request.data['id'] # и по id заказа переданному в запросе
                     )
-                    
-                    # Обновляем поля
-                    order.contact_id = request.data['contact']
-                    order.state = 'new'
-                    order.save()
 
-                    # Отправляем сигнал с order
+                    # ЗАМЕТКА!
+                    # если вы уверены в единственности объекта (например, для `id` или уникальных ключей, как здесь), 
+                    # использовать `.get()` не только быстрее, но и легче интерпретировать
+                    # https://docs.google.com/document/d/1_zO0NaMzGqY6ohgqYxi875pghBdFho9RvKxB5fhbjSc/edit?usp=sharing
+                    
+                    # Обновляем поля объекта заказа
+                    order.contact_id = request.data['contact']
+                    order.state = 'new' # устанавливаем статус заказа с "в корзине" на "новый"
+                    order.save() # сохраняем изменения в БД
+
+                    # Отправляем сигнал с order (уведомление магазину от заказчика)
                     new_order.send(
-                        sender=self.__class__, 
-                        user_id=request.user.id,
-                        order=order
+                        sender=self.__class__, # отправляем от текущего класса
+                        user_id=request.user.id, # по id покупателя
+                        order=order # объект заказа
                     )
                     return JsonResponse({'Status': True}, status=status.HTTP_200_OK)
 
