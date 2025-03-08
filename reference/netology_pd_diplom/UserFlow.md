@@ -791,7 +791,8 @@ curl --location --request POST 'http://localhost:8000/api/v1/partner/orders' \
 
 ```bash
 {
-    "Status": true
+    "Status": true,
+    "Message": "Статус заказа успешно изменен на Подтвержден"
 }
 ```
 
