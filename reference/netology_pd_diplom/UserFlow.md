@@ -777,7 +777,7 @@ curl --location --request GET 'http://localhost:8000/api/v1/partner/orders' \
 ```
 </details>
 
-#### 6.3. **Обновление состояния заказа** НЕ РЕАЛИЗОВАНО (делается в административной панели)
+#### 6.3. **Обновление состояния заказа** (NEW!)
 - Эндпоинт: **POST `/partner/orders`**
   - Магазин меняет статус заказа на значения `STATE_CHOICES` соответствующие `"confirmed"`, `"assembled"`, `"sent"`, `"delivered"` или `"canceled"` в соответствии с этапами его обработки.
   
