@@ -1,3 +1,4 @@
+import json
 from django.test import TestCase
 
 # Create your tests here.
@@ -11,10 +12,7 @@ from rest_framework.test import APITestCase # для упрощения напи
 from django.contrib.auth import get_user_model
 from model_bakery import baker # для создания тестовых данных
 from unittest.mock import patch # для работы с моками
-# from requests import get
-# from django.core.validators import URLValidator
-# from django.core.exceptions import ValidationError
-from backend.models import Shop, Category, Product, ProductInfo, Order, Contact, ConfirmEmailToken
+from backend.models import Shop, Category, Product, ProductInfo, Order, OrderItem, Contact, ConfirmEmailToken
 
 
 User = get_user_model()
@@ -217,46 +215,175 @@ class TestPartnerUpdate:
         assert response.json()['Status'] is True # Проверяем, что в ответе содержится ключ 'Status' со значением True
 
 
-
-
-
-
-
-
+############## ADD #################
 
 # Тесты для BasketView
 @pytest.mark.django_db
 class TestBasketView:
+    def setup_method(self):
+        self.client = APIClient()  # Используем APIClient вместо APITestCase
+        self.url = reverse('backend:basket')
+
     def test_basket_access_unauthorized(self):
-        url = reverse('basket')
-        response = client.get(url)
-        assert response.status_code == 403
+        """
+        Проверяем, что неавторизованный пользователь не может получить корзину.
+        """
+        response = self.client.get(self.url) # отправляем GET-запрос на эндпоинт BasketView
+        assert response.status_code == 403 # проверяем код ответа
+        assert response.json()['Error'] == 'Log in required' # проверяем текст ошибки
 
     def test_basket_add_items(self):
-        user = baker.make(User)
-        client.force_authenticate(user=user)
-        product = baker.make(Product)
-        shop = baker.make(Shop)
-        product_info = baker.make(ProductInfo, product=product, shop=shop)
-        
-        url = reverse('basket')
-        data = {'items': '[{"product_info": 1, "quantity": 2}]'}
-        response = client.post(url, data)
+        """
+        Проверяем, что пользователь может добавить товары в корзину.
+        """
+        # Создаем тестовые данные
+        user = baker.make(User) # создаем тестового пользователя
+        category = baker.make(Category) # создаем тестовую категорию
+        shop = baker.make(Shop) # создаем тестовый магазин
+        product = baker.make(Product, category=category) # создаем тестовый товар
+        product_info = baker.make(ProductInfo, product=product, shop=shop) # создаем тестовую информацию о товаре
+
+        # Аутентифицируем пользователя
+        self.client.force_authenticate(user=user) # Принудительная аутентификация пользователя
+
+        # Подготавливаем корректные данные запроса
+        payload = {
+            "items": json.dumps([{
+                "product_info": product_info.id,
+                "quantity": 2
+            }])
+        }
+
+        # Отправляем запрос
+        response = self.client.post(self.url, data=payload, format='json')
+
+        # Проверяем статус и структуру ответа
         assert response.status_code == 200
-        assert response.json()['Status'] is True
+        assert response.json() == {
+            'Status': True,
+            'Создано объектов': 1
+        }
+
+        # Проверяем создание объектов в БД
+        order = Order.objects.get(user=user, state='basket') # получаем заказ из базы данных
+        order_item = OrderItem.objects.get(order=order) # получаем товар из заказа
+        
+        assert order_item.product_info == product_info # проверяем, что товар в заказе соответствует тестовому товару
+        assert order_item.quantity == 2 # проверяем, что количество товара в заказе соответствует тестовому значению
+
 
 # Тесты для OrderView
-@pytest.mark.django_db
+@pytest.mark.django_db # декоратор для работы с базой данных
 class TestOrderView:
-    def test_order_create(self):
-        user = baker.make(User)
-        client.force_authenticate(user=user)
-        contact = baker.make(Contact, user=user)
-        order = baker.make(Order, user=user, state='basket')
+    def setup_method(self):
+        """
+        Настраиваем клиент и URL для тестирования.
+        """
+        self.client = APIClient()
+        self.url = reverse('backend:order')
+
+    def test_order_create_success(self):
+        """
+        Проверяем успешное создание заказа.
+        """
+        user = baker.make(User) # создаем тестового пользователя
+        contact = baker.make(Contact, user=user) # создаем тестовый контакт 
+        order = baker.make(Order, user=user, state='basket') # создаем тестовый заказ
         
-        url = reverse('order')
-        data = {'id': order.id, 'contact': contact.id}
-        response = client.post(url, data)
-        order.refresh_from_db()
+        self.client.force_authenticate(user=user) # Принудительная аутентификация пользователя
+        
+        # отправляем POST-запрос на эндпоинт OrderView
+        response = self.client.post( 
+            self.url, # url эндпоинта
+            {'id': str(order.id), 'contact': contact.id}, # id заказа и контакта 
+            format='json' # формат данных
+        )
+
+        assert response.status_code == 200 # проверяем код ответа
+        assert response.json() == {'Status': True}
+        
+        order.refresh_from_db() # обновляем данные заказа
+
+        assert order.state == 'new' # проверяем состояние заказа (должен измениться на new)
+        assert order.contact == contact # проверяем, что контакт в заказе соответствует тестовому контакту
+
+    def test_order_create_not_found(self):
+        """
+        Проверяем, что заказ не находится в базе данных при неправильном ID для поиска.
+        """
+        user = baker.make(User) # создаем тестового пользователя
+        contact = baker.make(Contact, user=user) # создаем тестовый контакт
+        self.client.force_authenticate(user=user) # Принудительная аутентификация пользователя
+        
+        # отправляем POST-запрос на эндпоинт OrderView
+        response = self.client.post( 
+            self.url,
+            {'id': '999', 'contact': contact.id},  # отправляем заведомо неверный ID заказа
+            format='json'
+        )
+        assert response.status_code == 404
+        assert response.json() == {'Status': False, 'Errors': 'Заказ не найден'}
+
+    def test_order_create_unauthenticated(self):
+        """
+        Проверяем, что заказ не создается, если пользователь не аутентифицирован.
+        """
+        response = self.client.post(self.url, {}) # отправляем POST-запрос на эндпоинт OrderView 
+        assert response.status_code == 403
+        assert response.json() == {'Status': False, 'Error': 'Log in required'}
+
+    def test_order_create_invalid_data(self):
+        """
+        Проверяем, что заказ не создается с невалидными данными.
+        """
+        user = baker.make(User) # создаем тестового пользователя
+        self.client.force_authenticate(user=user) # Принудительная аутентификация пользователя
+        
+        # Тест с невалидным форматом ID (буквенный)
+        response = self.client.post(
+            self.url,
+            {'id': 'invalid_id', 'contact': 1}, # отправляем невалидный ID заказа
+            format='json'
+        )
+        assert response.status_code == 400
+        assert 'Errors' in response.json()
+
+    def test_missing_required_fields(self):
+        """
+        Проверяем, что заказ не создается, если не указаны все обязательные поля.
+        """
+        user = baker.make(User)
+        self.client.force_authenticate(user=user)
+        
+        # Тест без обязательных полей
+        response = self.client.post(self.url, {}, format='json')
+        assert response.status_code == 400
+        assert response.json() == {
+            'Status': False, 
+            'Errors': 'Не указаны все необходимые аргументы'
+        }
+
+    def test_order_create_conflict(self):
+        """
+        Проверяем, что вьюшка всегда обновляет состояние на "new" и 
+        возвращает статус 200 даже для заказов не в корзине (т.е. когда state != 'basket').
+        """
+        user = baker.make(User) # Создаем пользователя
+        contact = baker.make(Contact, user=user) # Создаем контакт
+        order = baker.make(Order, user=user, state='new')  # Создаем заказ не в корзине
+        
+        self.client.force_authenticate(user=user)
+        response = self.client.post(
+            self.url,
+            {'id': str(order.id), 'contact': contact.id},
+            format='json'
+        )
+        
+        # Проверяем успешный статус
         assert response.status_code == 200
-        assert order.state == 'new'
+        assert response.json() == {'Status': True}
+        
+        # Проверяем обновление заказа
+        order.refresh_from_db()
+        assert order.state == 'new'  # Состояние изменилось
+        assert order.contact == contact  # Контакт установлен
