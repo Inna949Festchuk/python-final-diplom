@@ -687,7 +687,7 @@ class PartnerOrders(APIView):
                 order.state = new_state
                 order.save()
                 new_order.send(sender=self.__class__, user_id=request.user.id, order=order)
-                return JsonResponse({'Status': True})
+                return JsonResponse({'Status': True, 'Message': f'Статус заказа успешно изменен на {dict(Order.STATE_CHOICES)[order.state]}'}, status=status.HTTP_200_OK)
             except Exception as e:
                 return JsonResponse(
                     {'Status': False, 'Error': str(e)}, 
