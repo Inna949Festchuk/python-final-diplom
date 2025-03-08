@@ -9,3 +9,4 @@ class BackendConfig(AppConfig):
         """
         импортируем сигналы
         """
+        # import backend.signals  # Импорт сигналов при старте приложения

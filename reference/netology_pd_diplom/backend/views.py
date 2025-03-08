@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from ujson import loads as load_json # более быстрая альтернатива стандартной библиотеки json
 from yaml import load as load_yaml, Loader
+from rest_framework import status # статусы ошибок
 
 from backend.models import Shop, Category, Product, ProductInfo, Parameter, ProductParameter, Order, OrderItem, \
     Contact, ConfirmEmailToken
@@ -452,7 +453,7 @@ class PartnerUpdate(APIView):
 
     def post(self, request, *args, **kwargs):
         """
-        Update the partner price list information.
+        Обновите информацию о прайс-листе партнёров.
 
         Args:
         - request (Request): The Django request object.
@@ -517,18 +518,18 @@ class PartnerUpdate(APIView):
 
 class PartnerState(APIView):
     """
-       A class for managing partner state.
+    Клас открытия/закрытия магазина.
 
-       Methods:
-       - get: Retrieve the state of the partner.
+    Methods:
+    - get: Retrieve the state of the partner.
 
-       Attributes:
-       - None
-       """
+    Attributes:
+    - None
+    """
     # получить текущий статус
     def get(self, request, *args, **kwargs):
         """
-        Retrieve the state of the partner.
+        Получить статус магазина.
 
         Args:
         - request (Request): The Django request object.
@@ -542,29 +543,30 @@ class PartnerState(APIView):
         if request.user.type != 'shop':
             return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
 
-        shop = request.user.shop
-        serializer = ShopSerializer(shop)
-        return Response(serializer.data)
+        shop = request.user.shop # получаем магазин
+        serializer = ShopSerializer(shop) # сериализуем данные
+        return Response(serializer.data) # возвращаем статус магазина
 
     # изменить текущий статус
     def post(self, request, *args, **kwargs):
         """
-               Update the state of a partner.
+        Обновить статус магазина.
 
-               Args:
-               - request (Request): The Django request object.
+        Args:
+        - request (Request): The Django request object.
 
-               Returns:
-               - JsonResponse: The response indicating the status of the operation and any errors.
-               """
-        if not request.user.is_authenticated:
+        Returns:
+        - JsonResponse: The response indicating the status of the operation and any errors.
+        """
+        if not request.user.is_authenticated: # если пользователь не аутентифицирован
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
-        if request.user.type != 'shop':
+        if request.user.type != 'shop': # Если пользователь не магазин
             return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
-        state = request.data.get('state')
+        state = request.data.get('state') # получаем статус
         if state:
             try:
+                # Обновляем статус магазина отфильтрованного по ID пользователя
                 Shop.objects.filter(user_id=request.user.id).update(state=strtobool(state)) # преобразует строку в логическое значение True или False 
                 return JsonResponse({'Status': True})
             except ValueError as error:
@@ -575,7 +577,7 @@ class PartnerState(APIView):
 
 class PartnerOrders(APIView):
     """
-    Класс для получения заказов поставщиками
+    Класс для получения заказов поставщиками и изменения статуса готовности товара к выдачи
      Methods:
     - get: Retrieve the orders associated with the authenticated partner.
 
@@ -585,24 +587,27 @@ class PartnerOrders(APIView):
 
     def get(self, request, *args, **kwargs):
         """
-               Retrieve the orders associated with the authenticated partner.
+        Извлечь заказы, поступившие магазину от покупателя.
 
-               Args:
-               - request (Request): The Django request object.
+        Args:
+        - request (Request): The Django request object.
 
-               Returns:
-               - Response: The response containing the orders associated with the partner.
-               """
-        if not request.user.is_authenticated:
+        Returns:
+        - Response: The response containing the orders associated with the partner.
+        """
+        if not request.user.is_authenticated: # если пользователь не аутентифицирован
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
-        if request.user.type != 'shop':
+        if request.user.type != 'shop': # если пользователь не магазин
             return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
 
-        order = Order.objects.filter(
+        order = Order.objects.filter( # Фильтруем заказы по ID пользователя (владельца магазина),
+             # исключая заказы со статусом "в корзине"
             ordered_items__product_info__shop__user_id=request.user.id).exclude(state='basket').prefetch_related(
-            'ordered_items__product_info__product__category',
+            # Загружаем информацию о заказе, включая количество заказанных товаров и их цену и добавляем контакты для доставки
+            'ordered_items__product_info__product__category', 
             'ordered_items__product_info__product_parameters__parameter').select_related('contact').annotate(
+            # Вычисляем общую сумму заказа
             total_sum=Sum(F('ordered_items__quantity') * F('ordered_items__product_info__price'))).distinct()
         
         # ПОМЕТКА! prefetch_related - выполняет отдельные запросы для основной модели и для связанных объектов. Затем результаты объединяются в Python.
@@ -610,6 +615,91 @@ class PartnerOrders(APIView):
 
         serializer = OrderSerializer(order, many=True)
         return Response(serializer.data)
+
+
+    ######################### NEW NEW NEW ########################
+
+    def post(self, request, *args, **kwargs):
+        """
+        Изменение статуса заказа пользователем(магазином).
+
+        Args:
+            request (Request): The Django request object.
+
+        Returns:
+            JsonResponse: The response containing the status of the operation and any errors.
+
+        Raises:
+            HTTPError: If the request is invalid or the user is not authenticated or is not a shop.
+        """
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {'Status': False, 'Error': 'Log in required'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if request.user.type != 'shop':
+            return JsonResponse(
+                {'Status': False, 'Error': 'Только для магазинов'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if {'id', 'state'}.issubset(request.data):
+            order_id = request.data['id']
+            new_state = request.data['state']
+
+            # Проверка, что ID заказа является числом
+            if not str(order_id).isdigit():
+                return JsonResponse(
+                    {'Status': False, 'Error': 'ID должен быть числом'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Поиск заказа, связанного с магазином пользователя
+            order = Order.objects.filter(
+                id=order_id,
+                ordered_items__product_info__shop__user_id=request.user.id
+            ).first()
+
+            if not order:
+                return JsonResponse(
+                    {'Status': False, 'Error': 'Заказ с указанным ID не найден'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Проверка текущего статуса
+            if order.state == new_state:
+                return JsonResponse(
+                    {'Status': False, 'Error': 'Статус заказа уже установлен'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Проверка допустимости нового статуса
+            valid_states = dict(Order.STATE_CHOICES).keys()
+            if new_state not in valid_states:
+                return JsonResponse(
+                    {'Status': False, 'Error': 'Некорректный статус заказа'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            try:
+                # Обновление статуса заказа
+                order.state = new_state
+                order.save()
+                new_order.send(sender=self.__class__, user_id=request.user.id, order=order)
+                return JsonResponse({'Status': True})
+            except Exception as e:
+                return JsonResponse(
+                    {'Status': False, 'Error': str(e)}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        return JsonResponse(
+            {'Status': False, 'Error': 'Не указаны id и state'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    ######################### NEW NEW NEW ######################## 
 
 
 class ContactView(APIView):
@@ -733,6 +823,8 @@ class ContactView(APIView):
 class OrderView(APIView):
     """
     Класс для получения и размешения заказов пользователями (покупателями)
+    и отправки уведомлений пользователям о статусе заказа.
+
     Methods:
     - get: Retrieve the details of a specific order.
     - post: Create a new order.
@@ -771,10 +863,12 @@ class OrderView(APIView):
         serializer = OrderSerializer(order, many=True)
         return Response(serializer.data)
 
+    ######################### NEW NEW NEW ######################## 
+    
     # разместить новый заказ из корзины
     def post(self, request, *args, **kwargs):
         """
-        Оформить заказ и отправить уведомление магазину.
+        Разместить новый заказ из корзины и отправить уведомление магазину.
 
         Args:
         - request (Request): The Django request object.
@@ -782,27 +876,54 @@ class OrderView(APIView):
         Returns:
         - JsonResponse: The response indicating the status of the operation and any errors.
         """
-        if not request.user.is_authenticated: # если пользователь не аутентифицирован
-            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {'Status': False, 'Error': 'Log in required'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        if {'id', 'contact'}.issubset(request.data): # если id заказа и id контакта указаны в запросе
-            if request.data['id'].isdigit(): # если id заказа является числом
-                try: # пытаемся обновить заказ
-                    is_updated = Order.objects.filter(
-                        user_id=request.user.id, id=request.data['id']).update(
-                        contact_id=request.data['contact'],
-                        state='new') # фильтруем заказы, принадлежащие текущему аутентифицированному пользователю
-                                # по идентификатору заказа, который передан в запросе
-                                # в соответствии с переданным идентификатором контакта обновляем поле contact_id,
-                                # устанавливая связь заказа с контактом пользователя-покупателя
-                                # меняем статус заказа c "basket" на "new"
+        if {'id', 'contact'}.issubset(request.data):
+            if request.data['id'].isdigit():
+                try:
+                    # Получаем объект заказа
+                    order = Order.objects.get(
+                        user_id=request.user.id, 
+                        id=request.data['id']
+                    )
+                    
+                    # Обновляем поля
+                    order.contact_id = request.data['contact']
+                    order.state = 'new'
+                    order.save()
+
+                    # Отправляем сигнал с order
+                    new_order.send(
+                        sender=self.__class__, 
+                        user_id=request.user.id,
+                        order=order
+                    )
+                    return JsonResponse({'Status': True}, status=status.HTTP_200_OK)
+
+                except Order.DoesNotExist:
+                    return JsonResponse(
+                        {'Status': False, 'Errors': 'Заказ не найден'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
                 except IntegrityError as error:
                     print(error)
-                    return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
-                else:
-                    if is_updated: # если заказ был обновлен
-                        new_order.send(sender=self.__class__, user_id=request.user.id) # отправляем уведомление магазину на его email
-                                                            # об обновлении статуса заказа с "в корзине" на "новый"
-                        return JsonResponse({'Status': True})
+                    return JsonResponse(
+                        {'Status': False, 'Errors': 'Неправильно указаны аргументы'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                except Exception as e:
+                    return JsonResponse(
+                        {'Status': False, 'Errors': str(e)},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse(
+            {'Status': False, 'Errors': 'Не указаны все необходимые аргументы'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        ######################### NEW NEW NEW ######################## 

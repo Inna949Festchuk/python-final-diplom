@@ -6,7 +6,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver, Signal
 from django_rest_passwordreset.signals import reset_password_token_created
 
-from backend.models import ConfirmEmailToken, User
+from backend.models import ConfirmEmailToken, User, Order
 
 # Сигналы для отслеживания событий, таких как создание нового 
 # пользователя и сброс пароля. Каждый раз, когда происходит событие, соответствующий 
@@ -70,26 +70,63 @@ def new_user_registered_signal(sender: Type[User], instance: User, created: bool
         msg.send()
 
 
+# @receiver(new_order)
+# def new_order_signal(user_id: int, **kwargs) -> None:
+#     """
+#     Отправляет электронное письмо пользователю, когда происходит обновление статуса заказа.
+    
+#     Args:
+#         user_id (int): id пользователя, которому будет отправлено письмо
+#         **kwargs: дополнительные параметры
+#     """
+#     # send an e-mail to the user
+#     user = User.objects.get(id=user_id) 
+
+#     msg = EmailMultiAlternatives(
+#         # title:
+#         f"Обновление статуса заказа",
+#         # message:
+#         'Заказ сформирован',
+#         # from:
+#         settings.EMAIL_HOST_USER,
+#         # to:
+#         [user.email]
+#     ) 
+#     msg.send()
+
+
+######################### NEW NEW NEW ########################
+
 @receiver(new_order)
-def new_order_signal(user_id: int, **kwargs) -> None:
+def new_order_signal(user_id: int, order: Order, **kwargs) -> None:
     """
-    Отправляет электронное письмо пользователю, когда происходит обновление статуса заказа.
+    Отправляет электронное письмо пользователю при изменении статуса заказа.
+    Динамически цепляет статус заказа из запроса клиента и интегрирует его в тело письма
     
     Args:
-        user_id (int): id пользователя, которому будет отправлено письмо
-        **kwargs: дополнительные параметры
+        user_id (int): ID пользователя
+        order (Order): Объект заказа
     """
-    # send an e-mail to the user
-    user = User.objects.get(id=user_id) 
+    try:
+        user = User.objects.get(id=user_id)
+        
+        # Получаем человекочитаемое название статуса
+        state_display = order.get_state_display()
+        
+        msg = EmailMultiAlternatives(
+            # Заголовок
+            f"Обновление статуса заказа №{order.id}",
+            # Сообщение с текущим статусом
+            f"Статус заказа изменен на: {state_display}",
+            # Отправитель
+            settings.EMAIL_HOST_USER,
+            # Получатель
+            [user.email]
+        )
+        msg.send()
+    except User.DoesNotExist:
+        print(f"User with id {user_id} not found")
+    except Exception as e:
+        print(f"Error sending email: {str(e)}")
 
-    msg = EmailMultiAlternatives(
-        # title:
-        f"Обновление статуса заказа",
-        # message:
-        'Заказ сформирован',
-        # from:
-        settings.EMAIL_HOST_USER,
-        # to:
-        [user.email]
-    ) 
-    msg.send()
+######################### NEW NEW NEW ########################

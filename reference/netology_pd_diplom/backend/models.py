@@ -6,15 +6,15 @@ from django.utils.translation import gettext_lazy as _ # функция инте
 # gettext_lazy — "ленивая" версия функции перевода (вычисляется только при рендеринге, а не при загрузке модели).
 from django_rest_passwordreset.tokens import get_token_generator
 
-STATE_CHOICES = (
-    ('basket', 'Статус корзины'),
-    ('new', 'Новый'),
-    ('confirmed', 'Подтвержден'),
-    ('assembled', 'Собран'),
-    ('sent', 'Отправлен'),
-    ('delivered', 'Доставлен'),
-    ('canceled', 'Отменен'),
-)
+# STATE_CHOICES = (
+#     ('basket', 'Статус корзины'),
+#     ('new', 'Новый'),
+#     ('confirmed', 'Подтвержден'),
+#     ('assembled', 'Собран'),
+#     ('sent', 'Отправлен'),
+#     ('delivered', 'Доставлен'),
+#     ('canceled', 'Отменен'),
+# ) Перемещено в Order 
 
 USER_TYPE_CHOICES = (
     ('shop', 'Магазин'),
@@ -303,6 +303,18 @@ class Contact(models.Model):
 
 
 class Order(models.Model):
+    # Все обращения к статусам теперь происходят через модель Order
+    # Соответствующим принципам Django (хранение CHOICES внутри модели)
+    STATE_CHOICES = (
+        ('basket', 'Статус корзины'),
+        ('new', 'Новый'),
+        ('confirmed', 'Подтвержден'),
+        ('assembled', 'Собран'),
+        ('sent', 'Отправлен'),
+        ('delivered', 'Доставлен'),
+        ('canceled', 'Отменен'),
+    )
+
     objects = models.manager.Manager()
     user = models.ForeignKey(User, verbose_name=_('Пользователь'),
                              related_name='orders', blank=True,
@@ -317,6 +329,10 @@ class Order(models.Model):
         verbose_name = _('Заказ')
         verbose_name_plural = _("Список заказ")
         ordering = ('-dt',)
+
+    # NEW!!! Используется встроенный метод Django для полей с CHOICES (выборами) вместо ручного создания словаря
+    def get_state_display(self):
+        return dict(self.STATE_CHOICES).get(self.state, self.state)
 
     def __str__(self):
         return str(self.dt)
