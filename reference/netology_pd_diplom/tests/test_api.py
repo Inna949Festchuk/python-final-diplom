@@ -1,3 +1,8 @@
+# Тесты сфокусированны на проверке API, а модели проверяются 
+# косвенно (т.е. в текущих тестах проверяется интеграция — например, 
+# при добавлении товаров в корзину создаётся OrderItem, 
+# но нет юнит-тестов конкретно для модели OrderItem).
+
 import json # для работы с JSON
 import pytest # для написания тестов
 from django.urls import reverse # для работы с пространством имен
@@ -7,7 +12,7 @@ from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model # для получения модели пользователя
 from model_bakery import baker # для создания тестовых данных
 from unittest.mock import patch # для работы с моками
-from backend.models import Shop, Category, Product, ProductInfo, Order, OrderItem, Contact, ConfirmEmailToken
+from backend.models import Shop, Category, Product, ProductInfo, Order, Contact, ConfirmEmailToken
 
 User = get_user_model() # получаем модель пользователя
 
@@ -338,6 +343,3 @@ class TestOrderView:
         response = client.post(reverse('backend:order'), {}, format='json') # отправляем POST-запрос без необходимых аргументов
         assert response.status_code == 400
         assert response.json() == {'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}
-
-    
-
