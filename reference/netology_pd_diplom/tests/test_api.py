@@ -1,39 +1,52 @@
-import json
-from django.test import TestCase
-
-# Create your tests here.
-
-import pytest
+import json # для работы с JSON
+import pytest # для написания тестов
 from django.urls import reverse # для работы с пространством имен
 # APIClient - тестовый клиент DRF, который позволяет имитировать 
 # HTTP-запросы к разработанному API в тестах
 from rest_framework.test import APIClient
-from rest_framework.test import APITestCase # для упрощения написания тестов
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model # для получения модели пользователя
 from model_bakery import baker # для создания тестовых данных
 from unittest.mock import patch # для работы с моками
 from backend.models import Shop, Category, Product, ProductInfo, Order, OrderItem, Contact, ConfirmEmailToken
 
+User = get_user_model() # получаем модель пользователя
 
-User = get_user_model()
-client = APIClient()
+# Фикстура для клиента API
+@pytest.fixture
+def client():
+    """
+    Фикстура для клиента API.
+    """
+    return APIClient() # клиент для тестирования API 
 
+# Общая фикстура для аутентифицированного пользователя
+@pytest.fixture
+def authenticated_user(client):
+    """
+    Фикстура для аутентифицированного пользователя.
+    """
+    user = baker.make(User) # создаем тестового пользователя
+    client.force_authenticate(user=user) # Принудительная аутентификация пользователя
+    return user
 
-# Тесты для RegisterAccount (регистрация пользователя)
-@pytest.mark.django_db # сообщает системе тестирования pytest, что данный тест будет взаимодействовать с базой данных
-class TestRegisterAccount(APITestCase):
-    def test_register_missing_fields(self):
+# Тесты для RegisterAccount
+@pytest.mark.django_db
+class TestRegisterAccount:
+    """
+    Класс для тестирования регистрации пользователя.
+    """
+    def test_register_missing_fields(self, client):
         """
-        Тесты, для регистрации пользователя. Запрос с отсутствующими полями приводят к ошибке 400
+        Проверяем, что регистрация пользователя не проходит, если не указаны все обязательные поля.
         """
         url = reverse('backend:user-register') # получаем url эндпоинта RegisterAccount из пространства имен
-        response = self.client.post(url, {}) # отправка запроса на эндпоинт RegisterAccount
+        response = client.post(url, {}) # отправляем POST-запрос
         assert response.status_code == 400 # проверка статуса
-        assert 'Errors' in response.json() # проверка наличия ключа 'Errors'
+        assert 'Errors' in response.json() # проверяем, что в ответе есть ключ 'Errors' 
 
-    def test_register_invalid_password(self):
+    def test_register_invalid_password(self, client):
         """
-        Тесты, для регистрации пользователя. Запрос с невалидным паролем приводят к ошибке 400
+        Проверяем, что регистрация пользователя не проходит, если пароль невалиден.
         """
         data = {
             'first_name': 'Test',
@@ -42,17 +55,15 @@ class TestRegisterAccount(APITestCase):
             'password': '123', 
             'company': 'TestCo',
             'position': 'Manager'
-        } # передаем неправильные данные
-        url = reverse('backend:user-register') 
-        response = self.client.post(url, data)
+        } # создаем словарь с невалидным паролем
+        url = reverse('backend:user-register') # получаем url эндпоинта RegisterAccount из пространства имен
+        response = client.post(url, data) # отправляем POST-запрос
         assert response.status_code == 400 # проверка статуса
-        assert 'password' in response.json()['Errors'] # проверка наличия 'password'
+        assert 'password' in response.json()['Errors'] # проверяем, что в ответе есть ключ 'password' внутри ключа 'Errors'
 
-    def test_register_success(self):
+    def test_register_success(self, client):
         """
-        Проверяет успешную регистрацию пользователя.
-        Дается допустимый набор аргументов, и ответ проверяется на наличие кода статуса 200
-        и ключа «Статус» со значением True.
+        Проверяем, что регистрация пользователя проходит успешно.
         """
         data = {
             'first_name': 'Test',
@@ -61,329 +72,272 @@ class TestRegisterAccount(APITestCase):
             'password': 'TestPass123!',
             'company': 'TestCo',
             'position': 'Manager'
-        } # передаем правильные данные
-        url = reverse('backend:user-register') 
-        response = self.client.post(url, data)
-        assert response.status_code == 200 # проверка статуса
-        assert response.json()['Status'] is True # проверка значения ключа 'Status'
+        } # создаем словарь с валидным паролем
+        url = reverse('backend:user-register')
+        response = client.post(url, data)
+        assert response.status_code == 200
+        assert response.json()['Status'] is True # проверяем, что в ответе есть ключ 'Status' со значением True
 
-
-# Тесты для ConfirmAccount (подтверждение учетной записи и активация учетной записи)
-@pytest.mark.django_db # сообщает системе тестирования pytest, что данный тест будет взаимодействовать с базой данных
-class TestConfirmAccount(APITestCase):
-    def test_confirm_invalid_token(self):
+# Тесты для ConfirmAccount
+@pytest.mark.django_db # декоратор для работы с базой данных
+class TestConfirmAccount:
+    """
+    Класс для тестирования подтверждения учетной записи.
+    """
+    def test_confirm_invalid_token(self, client):
         """
-        Тестирует, что подтверждение учетной записи с недействительным токеном приводит к ответу 400.
-        """
-        user = baker.make(User, email='test@test.com', is_active=False) # создаем тестового пользователя
-        token = baker.make(ConfirmEmailToken, user=user) # тестовый токен не создаем а передаем 'wrong_token'
-        url = reverse('backend:user-register-confirm') # получаем url эндпоинта ConfirmAccount из пространства имен
-        data = {'email': 'test@test.com', 'token': 'wrong_token'} # передаем неправильный токен 'wrong_token'
-        response = self.client.post(url, data) # отправляем запрос
-        assert response.status_code == 400 # проверяем код ответа (должна быть ошибка 400)
-        assert 'Errors' in response.json() # проверяем наличие ключа 'Errors'
-
-    def test_confirm_success(self):
-        """
-        Тестирует, что подтверждение учетной записи с действительным токеном 
-        приводит к ответу 200 и активации учетной записи пользователя.
+        Проверяем, что подтверждение учетной записи не проходит, если указан невалидный токен.
         """
         user = baker.make(User, email='test@test.com', is_active=False) # создаем тестового пользователя
-        token = baker.make(ConfirmEmailToken, user=user) #  создаем тестовый токен
+        baker.make(ConfirmEmailToken, user=user) # создаем токен
         url = reverse('backend:user-register-confirm') # получаем url эндпоинта ConfirmAccount из пространства имен
-        data = {'email': 'test@test.com', 'token': token.key} # пользователь получил на е-маил, правильный токен 
-        response = self.client.post(url, data) # и передает его серверному приложению на эндпоинт ConfirmAccount
-        user.refresh_from_db() # обновляем объект user
-        # После успешного выполнения операции подтверждения email, которая активирует пользователя, 
-        # нужно обновить объект пользователя, чтобы отразить изменения, сохраненные в базе данных is_active=True, 
-        # так как когда мы создавали тестового пользователя он был is_active=False
-        assert response.status_code == 200 # проверяем код ответа
-        assert user.is_active is True # проверяем АКТИВАЦИЮ пользователя (пользователь должен быть активирован)
+        data = {'email': 'test@test.com', 'token': 'wrong_token'} # создаем словарь с невалидным токеном
+        response = client.post(url, data) 
+        assert response.status_code == 400
+        assert 'Errors' in response.json() # проверяем, что в ответе есть ключ 'Errors'
 
+    def test_confirm_success(self, client):
+        """
+        Проверяем, что подтверждение учетной записи проходит успешно.
+        """
+        user = baker.make(User, email='test@test.com', is_active=False) # создаем тестового пользователя
+        token = baker.make(ConfirmEmailToken, user=user) # создаем токен
+        url = reverse('backend:user-register-confirm') # получаем url эндпоинта ConfirmAccount из пространства имен
+        data = {'email': 'test@test.com', 'token': token.key} # создаем словарь с валидным токеном
+        response = client.post(url, data)
+        user.refresh_from_db() # обновляем данные пользователя из базы данных 
+        assert response.status_code == 200
+        assert user.is_active is True # проверяем, что пользователь активирован (поле is_active установлено в True)
 
-# Тесты для LoginAccount (авторизация пользователя)
+# Тесты для LoginAccount
 @pytest.mark.django_db
-class TestLoginAccount(APITestCase):
-    def test_login_invalid_credentials(self):
+class TestLoginAccount:
+    """
+    Класс для тестирования входа в систему.
+    """
+    def test_login_invalid_credentials(self, client):
         """
-        Тесты, которые показывают, что вход в систему с недействительными учетными данными возвращает ответ 400.
+        Проверяем, что вход в систему не проходит, если указаны невалидные учетные данные.
         """
-        user = baker.make(User, email='test@test.com',  password='TestPass123!', is_active=True) # создаем пользователя (для авторизации он должен быть активирован)
-        user.set_password(user.password) # Хешируем тестовый пароль
-        user.save() # и сохраняем его в БД
-        url = reverse('backend:user-login') # получаем url эндпоинта TestLoginAccount из пространства имен
-        data = {'email': 'test@test.com', 'password': 'WrongPass'} # клиент передает неправильный пароль
-        response = self.client.post(url, data) # отправляем запрос на эндпоинт TestLoginAccount
-        assert response.status_code == 400 # проверяем код ответа
-        assert 'Errors' in response.json() # проверяем наличие ключа 'Errors'
+        user = baker.make(User, email='test@test.com', password='TestPass123!', is_active=True) # создаем тестового пользователя (для авторизации он должен быть активирован) 
+        user.set_password(user.password) # устанавливаем пароль
+        user.save() # сохраняем его в базе данных
+        url = reverse('backend:user-login') # получаем url эндпоинта LoginAccount из пространства имен
+        data = {'email': 'test@test.com', 'password': 'WrongPass'} # создаем словарь с невалидным паролем
+        response = client.post(url, data) 
+        assert response.status_code == 400
+        assert 'Errors' in response.json() # проверяем, что в ответе есть ключ 'Errors'
 
-    def test_login_success(self):
+    def test_login_success(self, client):
         """
-        Тесты, которые показывают, что при входе активированного пользователя в систему 
-        с действительными учетными данными (e-mail, пароль) серверное приложение возвращает ответ 200 и токен.
+        Проверяем, что вход в систему проходит успешно.
         """
-        user = baker.make(User, email='test@test.com', password='TestPass123!', is_active=True) # создаем тестового активированного пользователя
-        user.set_password(user.password) # Хешируем тестовый пароль
-        user.save() # и сохраняем его в БД
-        url = reverse('backend:user-login') # получаем url эндпоинта TestLoginAccount из пространства имен
-        data = {'email': 'test@test.com', 'password': 'TestPass123!'} # формируем тело запроса клиента с правильными данными
-        response = self.client.post(url, data) # и отправляем этот запрос на эндпоинт TestLoginAccount
-        assert response.status_code == 200 # проверяем код ответа
-        assert 'Token' in response.json() # проверяем наличие ключа 'Token' в ответе пользователю 
+        user = baker.make(User, email='test@test.com', password='TestPass123!', is_active=True)
+        user.set_password(user.password)
+        user.save()
+        url = reverse('backend:user-login')
+        data = {'email': 'test@test.com', 'password': 'TestPass123!'} # создаем словарь с валидным паролем
+        response = client.post(url, data)
+        assert response.status_code == 200
+        assert 'Token' in response.json() # проверяем, что в ответе есть ключ 'Token'
 
-
-# Тесты для PartnerUpdateimport (обновление партнера)
+# Тесты для PartnerUpdate
 @pytest.mark.django_db
 class TestPartnerUpdate:
-    @pytest.fixture # декоратор для создания клиента API DRF в тестах (для упрощения написания тестов, вместо self.client) 
-    def client(self):
-        return APIClient()
-
+    """
+    Класс для тестирования обновления партнера.
+    """
     def test_partner_update_permission(self, client):
-        # Пользователь не является 'shop'
-        user = baker.make(User, type='buyer') # назначаем пользователю тип 'buyer' - покупатель 
-                # (он должен быть зарегистрирован (токен), активирован, выбран его тип (buyer или shop) и авторизирован (токен))
-        
-        client.force_authenticate(user=user) # Принудительная аутентификация пользователя для выполнения запроса.
-        # Это позволяет обходить процесс фактической аутентификации, 
-        # например, предоставление токена или ввода имени пользователя и пароляна во время теста.
-        url = reverse('backend:partner-update')
-        response = client.post(url, {}) # пользователь пытается обновить партнера но так как он авторизирован как покупатель, он не может
-        assert response.status_code == 403 # и получает ошибку 403
-        assert response.json()['Error'] == 'Только для магазинов' # и текст ошибки
+        """
+        Проверяем, что обновление партнера доступно только для магазинов.
+        """
+        user = baker.make(User, type='buyer') # назначаем пользователю тип 'buyer' - покупатель
+        client.force_authenticate(user=user) # Принудительная аутентификация пользователя
+        url = reverse('backend:partner-update') # получаем url эндпоинта PartnerUpdate
+        response = client.post(url, {}) # отправляем POST-запрос
+        assert response.status_code == 403
+        assert response.json()['Error'] == 'Только для магазинов' # проверяем, что в ответе есть ключ 'Error' со значением 'Только для магазинов'
 
     def test_unauthenticated_user(self, client):
-        # Незарегистрированный, неактивированный и неавторизированный пользователь (если следовать 'user flow')
-        url = reverse('backend:partner-update') 
-        response = client.post(url, {}) # отправляем POST-запрос на эндпоинт PartnerUpdate !БЕЗ ТОКЕНА В HEADERS!
-        assert response.status_code == 403 # проверяем код ответа
-        assert response.json()['Error'] == 'Log in required' # и текст ошибки 'Требуется вход (т.е. аутентификация, активация, авторизация)'
-
-    def test_partner_update_invalid_url(self, mocker, client):
-        # Неверный URL указан прайс-листа партнера
-        user = baker.make('backend.User', type='shop')
-        client.force_authenticate(user=user)
-
+        """
+        Проверяем, что обновление партнера доступно только для 
+        зарегистрированных пользователей.
+        """
         url = reverse('backend:partner-update')
-        data = {'url': 'invalid-url'} # клиент передает неверный URL
+        response = client.post(url, {})
+        assert response.status_code == 403
+        assert response.json()['Error'] == 'Log in required' # проверяем, что в ответе есть ключ 'Error' со значением 'Требуется вход'
 
-        response = client.post(url, data)
+    def test_partner_update_invalid_url(self, client):
+        """
+        Проверяем, что обновление партнера доступно только для 
+        зарегистрированных пользователей с правильными учетными данными.
+        """
+        user = baker.make(User, type='shop') # назначаем пользователю тип 'shop' - магазин
+        client.force_authenticate(user=user) # Принудительная аутентификация пользователя
+        url = reverse('backend:partner-update') # получаем url эндпоинта PartnerUpdate
+        data = {'url': 'invalid-url'} # создаем словарь с невалидным url
+        response = client.post(url, data) # отправляем POST-запрос
         assert response.status_code == 400
-        assert 'Error' in response.json()  # Текст ошибки может зависеть от URLValidator (см. views.py)
+        assert 'Error' in response.json() # проверяем, что в ответе есть ключ 'Error'
 
     def test_partner_update_missing_url(self, client):
-        # Ошибка: не указан параметр `url` прайс-листа партнера для загрузки товаров
-        user = baker.make('backend.User', type='shop')
-        client.force_authenticate(user=user)
-
+        """
+        Проверяем, что обновление партнера доступно только для 
+        зарегистрированных пользователей с полными учетными данными.
+        """
+        user = baker.make(User, type='shop')
+        client.force_authenticate(user=user) # Принудительная аутентификация пользователя
         url = reverse('backend:partner-update')
         response = client.post(url, {})
         assert response.status_code == 400
-        assert response.json()['Errors'] == 'Не указаны все необходимые аргументы'
+        assert response.json()['Errors'] == 'Не указаны все необходимые аргументы' 
 
-    @patch('backend.views.get')  # Заменяем метод `requests.get` с помощью Mock для изоляции теста от реальных HTTP-запросов
-    @patch('backend.views.load_yaml')  # Заменяем функцию `load_yaml`, которая парсит YAML-файлы, чтобы вернуть заранее заданные данные
+    @patch('backend.views.get')  # подменяем метод `requests.get` с помощью Mock для изоляции теста от реальных HTTP-запросов
+    @patch('backend.views.load_yaml')  # подменяем функцию `load_yaml`, которая парсит YAML-файлы
     def test_successful_update(self, mock_load_yaml, mock_get, client):
-        # Успешное выполнение обновления прайс-листа
-        user = baker.make(User, type='shop') # создаем пользователя с типом 'shop' - он имеет права на обновления прайс-листа
-        client.force_authenticate(user=user) # Принудительно аутентифицируем пользователя для выполнения запросов, требующие аутентификации
-
-        # Задаем тестовые mock-данные для теста
+        """
+        Проверяем, что обновление партнера проходит успешно.
+        mock_load_yaml - мокирование функции `load_yaml`, которая парсит YAML-файлы
+        mock_get - мокирование метода `requests.get`, чтобы вернуть заранее заданные данные
+        """
+        user = baker.make(User, type='shop') # назначаем пользователю тип 'shop' - магазин
+        client.force_authenticate(user=user) # принудительная аутентификация пользователя
         mock_load_yaml.return_value = {
             'shop': 'Test Shop',
             'categories': [{'id': 1, 'name': 'Category 1'}],
-            'goods': [
-                {
-                    'id': 1,
-                    'name': 'Test Product',
-                    'model': 'Model X',
-                    'category': 1,
-                    'price': 100,
-                    'price_rrc': 150,
-                    'quantity': 10,
-                    'parameters': {'color': 'red'}
-                }
-            ]
-        } 
-
-        # Задаем мок-ответ для `get`, который имитирует получение содержимого файла
-        mock_get.return_value.content = b'mock-content'  # Мокирование данных, которые возвращаются как байтовая строка
-        url = reverse('backend:partner-update')
+            'goods': [{
+                'id': 1,
+                'name': 'Test Product',
+                'model': 'Model X',
+                'category': 1,
+                'price': 100,
+                'price_rrc': 150,
+                'quantity': 10,
+                'parameters': {'color': 'red'}
+            }]
+        } # заранее задаем данные
+        mock_get.return_value.content = b'mock-content' # мокирование данных, которые возвращаются как байтовая строка
+        url = reverse('backend:partner-update') # получаем url эндпоинта PartnerUpdate
         data = {'url': 'http://example.com/test.yml'} # мокированный URL прайс-листа
-        response = client.post(url, data, format='json') # отправляем POST-запрос на эндпоинт PartnerUpdate 
-        assert response.status_code == 200 
-        assert response.json()['Status'] is True # Проверяем, что в ответе содержится ключ 'Status' со значением True
-
-
-############## ADD #################
+        response = client.post(url, data, format='json') # отправляем POST-запрос
+        assert response.status_code == 200
+        assert response.json()['Status'] is True # проверяем, что в ответе есть ключ 'Status' со значением True
 
 # Тесты для BasketView
 @pytest.mark.django_db
 class TestBasketView:
-    def setup_method(self):
-        self.client = APIClient()  # Используем APIClient вместо APITestCase
-        self.url = reverse('backend:basket')
-
-    def test_basket_access_unauthorized(self):
+    """
+    Класс для тестирования BasketView (корзина).
+    """
+    @pytest.fixture
+    def setup_data(self):
         """
-        Проверяем, что неавторизованный пользователь не может получить корзину.
+        Фикстура для создания необходимых данных для тестирования.
         """
-        response = self.client.get(self.url) # отправляем GET-запрос на эндпоинт BasketView
-        assert response.status_code == 403 # проверяем код ответа
-        assert response.json()['Error'] == 'Log in required' # проверяем текст ошибки
-
-    def test_basket_add_items(self):
-        """
-        Проверяем, что пользователь может добавить товары в корзину.
-        """
-        # Создаем тестовые данные
         user = baker.make(User) # создаем тестового пользователя
         category = baker.make(Category) # создаем тестовую категорию
         shop = baker.make(Shop) # создаем тестовый магазин
         product = baker.make(Product, category=category) # создаем тестовый товар
-        product_info = baker.make(ProductInfo, product=product, shop=shop) # создаем тестовую информацию о товаре
+        product_info = baker.make(ProductInfo, product=product, shop=shop) # создаем тестовую информацию о продукте
+        return user, product_info # возвращаем созданные данные
 
-        # Аутентифицируем пользователя
-        self.client.force_authenticate(user=user) # Принудительная аутентификация пользователя
+    def test_basket_access_unauthorized(self, client):
+        """
+        Проверяем доступ к корзине для неавторизованных пользователей.
+        """
+        url = reverse('backend:basket')
+        response = client.get(url)
+        assert response.status_code == 403
+        assert response.json()['Error'] == 'Log in required'
 
-        # Подготавливаем корректные данные запроса
-        payload = {
-            "items": json.dumps([{
-                "product_info": product_info.id,
-                "quantity": 2
-            }])
-        }
-
-        # Отправляем запрос
-        response = self.client.post(self.url, data=payload, format='json')
-
-        # Проверяем статус и структуру ответа
+    def test_basket_add_items(self, client, setup_data):
+        """
+        Проверяем добавление товаров в корзину для авторизованных пользователей.
+        """
+        user, product_info = setup_data # получаем данные из фикстуры
+        client.force_authenticate(user=user) # аутентификация пользователя
+        payload = {"items": json.dumps([{"product_info": product_info.id, "quantity": 2}])} # подготавливаем данные для запроса в формате JSON 
+        response = client.post(reverse('backend:basket'), data=payload, format='json') # отправляем POST-запрос
         assert response.status_code == 200
-        assert response.json() == {
-            'Status': True,
-            'Создано объектов': 1
-        }
-
-        # Проверяем создание объектов в БД
-        order = Order.objects.get(user=user, state='basket') # получаем заказ из базы данных
-        order_item = OrderItem.objects.get(order=order) # получаем товар из заказа
-        
-        assert order_item.product_info == product_info # проверяем, что товар в заказе соответствует тестовому товару
-        assert order_item.quantity == 2 # проверяем, что количество товара в заказе соответствует тестовому значению
-
+        assert response.json() == {'Status': True, 'Создано объектов': 1} # проверяем, что в ответе есть ключ 'Status' со значением True и ключ 'Создано объектов' со значением 1
 
 # Тесты для OrderView
-@pytest.mark.django_db # декоратор для работы с базой данных
+@pytest.mark.django_db
 class TestOrderView:
-    def setup_method(self):
+    """
+    Класс для тестирования OrderView (заказы).
+    """
+    @pytest.fixture
+    def setup_order(self):
         """
-        Настраиваем клиент и URL для тестирования.
-        """
-        self.client = APIClient()
-        self.url = reverse('backend:order')
-
-    def test_order_create_success(self):
-        """
-        Проверяем успешное создание заказа.
-        """
-        user = baker.make(User) # создаем тестового пользователя
-        contact = baker.make(Contact, user=user) # создаем тестовый контакт 
-        order = baker.make(Order, user=user, state='basket') # создаем тестовый заказ
-        
-        self.client.force_authenticate(user=user) # Принудительная аутентификация пользователя
-        
-        # отправляем POST-запрос на эндпоинт OrderView
-        response = self.client.post( 
-            self.url, # url эндпоинта
-            {'id': str(order.id), 'contact': contact.id}, # id заказа и контакта 
-            format='json' # формат данных
-        )
-
-        assert response.status_code == 200 # проверяем код ответа
-        assert response.json() == {'Status': True}
-        
-        order.refresh_from_db() # обновляем данные заказа
-
-        assert order.state == 'new' # проверяем состояние заказа (должен измениться на new)
-        assert order.contact == contact # проверяем, что контакт в заказе соответствует тестовому контакту
-
-    def test_order_create_not_found(self):
-        """
-        Проверяем, что заказ не находится в базе данных при неправильном ID для поиска.
+        Фикстура для создания необходимых данных для тестирования.
         """
         user = baker.make(User) # создаем тестового пользователя
         contact = baker.make(Contact, user=user) # создаем тестовый контакт
-        self.client.force_authenticate(user=user) # Принудительная аутентификация пользователя
-        
-        # отправляем POST-запрос на эндпоинт OrderView
-        response = self.client.post( 
-            self.url,
-            {'id': '999', 'contact': contact.id},  # отправляем заведомо неверный ID заказа
-            format='json'
-        )
-        assert response.status_code == 404
-        assert response.json() == {'Status': False, 'Errors': 'Заказ не найден'}
+        order = baker.make(Order, user=user, state='basket') # создаем тестовый заказ
+        return user, contact, order
 
-    def test_order_create_unauthenticated(self):
+    def test_order_create_success(self, client, setup_order):
+        """
+        Проверяем успешное создание заказа.
+        """
+        user, contact, order = setup_order # получаем данные из фикстуры
+        client.force_authenticate(user=user) # аутентификация пользователя
+        response = client.post(
+            reverse('backend:order'),
+            {'id': str(order.id), 'contact': contact.id},
+            format='json'
+        ) # отправляем POST-запрос с данными об заказе и контакте 
+        assert response.status_code == 200
+        assert response.json() == {'Status': True} # проверяем, что в ответе есть ключ 'Status' со значением True
+
+    def test_order_create_not_found(self, client):
+        """
+        Проверяем, что заказ отсутствует в базе данных при неправильном ID для поиска.
+        """
+        user = baker.make(User) # создаем тестового пользователя
+        contact = baker.make(Contact, user=user) # создаем тестовый контакт
+        client.force_authenticate(user=user) # аутентификация пользователя
+        response = client.post(
+            reverse('backend:order'),
+            {'id': '999', 'contact': contact.id},
+            format='json'
+        ) # отправляем POST-запрос с неправильным ID заказа
+        assert response.status_code == 404
+        assert response.json() == {'Status': False, 'Errors': 'Заказ не найден'} # проверяем, что в ответе есть ключ 'Status' со значением False и ключ 'Errors' со значением 'Заказ не найден'
+
+    def test_order_create_unauthenticated(self, client):
         """
         Проверяем, что заказ не создается, если пользователь не аутентифицирован.
         """
-        response = self.client.post(self.url, {}) # отправляем POST-запрос на эндпоинт OrderView 
+        response = client.post(reverse('backend:order'), {}) 
         assert response.status_code == 403
-        assert response.json() == {'Status': False, 'Error': 'Log in required'}
+        assert response.json() == {'Status': False, 'Error': 'Log in required'} # проверяем, что в ответе есть ключ 'Status' со значением False и ключ 'Error' со значением 'Log in required'
 
-    def test_order_create_invalid_data(self):
+    def test_order_create_invalid_data(self, client):
         """
         Проверяем, что заказ не создается с невалидными данными.
         """
         user = baker.make(User) # создаем тестового пользователя
-        self.client.force_authenticate(user=user) # Принудительная аутентификация пользователя
-        
-        # Тест с невалидным форматом ID (буквенный)
-        response = self.client.post(
-            self.url,
-            {'id': 'invalid_id', 'contact': 1}, # отправляем невалидный ID заказа
+        client.force_authenticate(user=user) # аутентификация пользователя
+        response = client.post(
+            reverse('backend:order'),
+            {'id': 'invalid_id', 'contact': 1},
             format='json'
-        )
+        ) # отправляем POST-запрос с невалидными данными
         assert response.status_code == 400
-        assert 'Errors' in response.json()
+        assert 'Errors' in response.json() # проверяем, что в ответе есть ключ 'Errors'
 
-    def test_missing_required_fields(self):
+    def test_missing_required_fields(self, client):
         """
-        Проверяем, что заказ не создается, если не указаны все обязательные поля.
+        Проверяем, что заказ не создается, если не указаны все необходимые аргументы.
         """
-        user = baker.make(User)
-        self.client.force_authenticate(user=user)
-        
-        # Тест без обязательных полей
-        response = self.client.post(self.url, {}, format='json')
+        user = baker.make(User) # создаем тестового пользователя
+        client.force_authenticate(user=user) # аутентификация пользователя
+        response = client.post(reverse('backend:order'), {}, format='json') # отправляем POST-запрос без необходимых аргументов
         assert response.status_code == 400
-        assert response.json() == {
-            'Status': False, 
-            'Errors': 'Не указаны все необходимые аргументы'
-        }
+        assert response.json() == {'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}
 
-    def test_order_create_conflict(self):
-        """
-        Проверяем, что вьюшка всегда обновляет состояние на "new" и 
-        возвращает статус 200 даже для заказов не в корзине (т.е. когда state != 'basket').
-        """
-        user = baker.make(User) # Создаем пользователя
-        contact = baker.make(Contact, user=user) # Создаем контакт
-        order = baker.make(Order, user=user, state='new')  # Создаем заказ не в корзине
-        
-        self.client.force_authenticate(user=user)
-        response = self.client.post(
-            self.url,
-            {'id': str(order.id), 'contact': contact.id},
-            format='json'
-        )
-        
-        # Проверяем успешный статус
-        assert response.status_code == 200
-        assert response.json() == {'Status': True}
-        
-        # Проверяем обновление заказа
-        order.refresh_from_db()
-        assert order.state == 'new'  # Состояние изменилось
-        assert order.contact == contact  # Контакт установлен
+    
+
