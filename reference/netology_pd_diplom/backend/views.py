@@ -748,39 +748,6 @@ class PartnerOrders(APIView):
         )
 
     ######################### NEW NEW NEW ######################## 
-    
-
-### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ###
-
-
-### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ###
-    
-    def post(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-
-        if request.user.type != 'shop':
-            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
-
-        data = request.data
-        if {'id', 'state'}.issubset(data):
-            try:
-                order = Order.objects.get(id=data['id'], ordered_items__product_info__shop__user_id=request.user.id)
-                if order.state != data['state']:
-                    order.state = data['state']
-                    order.save()
-
-                    # Отправляем email пользователю через Celery
-                    user_email = order.user.email
-                    state_display = dict(Order.STATE_CHOICES)[order.state]
-                    send_order_status_update_email.delay(user_email=user_email, order_id=order.id, state_display=state_display)
-
-                    return JsonResponse({'Status': True})
-                else:
-                    return JsonResponse({'Status': False, 'Errors': 'Текущий статус совпадает с указанным'})
-            except Order.DoesNotExist:
-                return JsonResponse({'Status': False, 'Errors': 'Order not found'}, status=404)
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
 class ContactView(APIView):
