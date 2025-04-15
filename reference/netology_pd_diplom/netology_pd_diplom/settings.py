@@ -102,6 +102,13 @@ DATABASES = {
     }
 }
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
 
@@ -201,8 +208,11 @@ REST_FRAMEWORK = {
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Celery
-CELERY_BROKER_URL = 'redis://localhost:6379' # Брокер сообщений
-CELERY_RESULT_BACKEND = 'redis://localhost:6379' # Бекенд результатов
+# Если Redis работает в другом контейнере, проверьте, правильно ли настроены сети в docker-compose.yml. 
+# Необходимо использовать имя контейнера Redis в качестве адреса для подключения, а не localhost. 
+# Например, если Redis запущен в контейнере с именем broker, то адрес должен выглядеть так:
+CELERY_BROKER_URL = 'redis://broker:6379' # Брокер сообщений
+CELERY_RESULT_BACKEND = 'redis://broker:6379' # Бекенд результатов
 CELERY_ACCEPT_CONTENT = ['application/json'] # Допустимый формат
 CELERY_RESULT_SERIALIZER = 'json' # Сериализатор результатов
 CELERY_TASK_SERIALIZER = 'json' # Сериализатор задач
