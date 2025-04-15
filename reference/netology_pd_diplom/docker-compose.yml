@@ -11,10 +11,10 @@ services:
       DB_NAME: ${DB_NAME}
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
     entrypoint: python manage.py runserver 0.0.0.0:8000
-    ports:
-      - "8000:8000"
     volumes:
       - ./:/app
+    ports:
+      - "8000:8000"  # Добавляем проброс порта
     depends_on:
       celery:
         condition: service_started
