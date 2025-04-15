@@ -8,12 +8,12 @@
 2. Перейти в рабочую дерриктороию
 3. Загрузить все переменные сред
 ```bash
-    export DEBUG=1
-    export SECRET_KEY="your_secret_key_here"
-    export ALLOWED_HOSTS="localhost"
-    export DB_ENGINE="django.db.backends.postgresql"
-    export DB_NAME="your_database_name"
-    export EMAIL_HOST_PASSWORD="your_email_password"
+    export DEBUG=True
+    export SECRET_KEY='your_secret_key_here'
+    export ALLOWED_HOSTS=localhost
+    export DB_ENGINE=django.db.backends.sqlite3
+    export DB_NAME=db.sqlite3
+    export EMAIL_HOST_PASSWORD='your_email_password'
 ```
 Кроме того, если видишь сообщение Compose can now delegate builds to bake for better performance,
 можешь включить использование нового инструмента Bake для сборки образов, установив переменную окружения:
