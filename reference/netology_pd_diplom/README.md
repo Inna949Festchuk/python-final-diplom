@@ -8,7 +8,7 @@
 2. Перейти в рабочую дерриктороию
 3. Загрузить все переменные сред
 ```bash
-    export DEBUG="True"
+    export DEBUG=1
     export SECRET_KEY="your_secret_key_here"
     export ALLOWED_HOSTS="localhost"
     export DB_ENGINE="django.db.backends.postgresql"
