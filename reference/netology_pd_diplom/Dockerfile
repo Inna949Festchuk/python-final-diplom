@@ -1,5 +1,5 @@
 # Устанавливаем базовый образ Python и Alpine Linux
-FROM python:3.12-alpine
+FROM python:3.10-alpine
 
 # Установка компилятора gcc для Alpine Linux
 RUN apk add --no-cache gcc musl-dev
