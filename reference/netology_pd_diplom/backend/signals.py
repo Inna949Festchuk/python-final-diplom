@@ -16,7 +16,6 @@ new_user_registered = Signal() # сигнал для регистрации но
 
 new_order = Signal() # сигнал для обновления статуса заказа
 
-
 @receiver(reset_password_token_created)
 def password_reset_token_created(sender: Type[User], instance: User, reset_password_token: ConfirmEmailToken, **kwargs) -> None:
     """
@@ -39,7 +38,7 @@ def password_reset_token_created(sender: Type[User], instance: User, reset_passw
         # to:
         [reset_password_token.user.email]
     ) # отправляем письмо с токеном для сброса пароля 
-    msg.send() # отправляем письмо
+    msg.send() # отправляем письмо 
 
 
 @receiver(post_save, sender=User)
@@ -53,21 +52,22 @@ def new_user_registered_signal(sender: Type[User], instance: User, created: bool
         created (bool): флаг, что пользователь был создан
         **kwargs: дополнительные параметры
     """
-    if created and not instance.is_active: # если пользователь создан и не активен
-        # создаем токен для подтверждения электронного адреса 
-        token, _ = ConfirmEmailToken.objects.get_or_create(user_id=instance.pk) # возвращает кортеж, содержащий два элемента: сам объект и булево значение, 
-                                                                        # указывающее, был ли он создан или уже существовал (заглушка _).
-        msg = EmailMultiAlternatives(
-            # title:
-            f"Токен подтверждения электронного адреса для {instance.email}",
-            # message:
-            token.key,
-            # from:
-            settings.EMAIL_HOST_USER,
-            # to:
-            [instance.email]
-        )
-        msg.send()
+    # if created and not instance.is_active: # если пользователь создан и не активен
+    #     # создаем токен для подтверждения электронного адреса 
+    #     token, _ = ConfirmEmailToken.objects.get_or_create(user_id=instance.pk) # возвращает кортеж, содержащий два элемента: сам объект и булево значение, 
+    #                                                                     # указывающее, был ли он создан или уже существовал (заглушка _).
+    #     msg = EmailMultiAlternatives(
+    #         # title:
+    #         f"Токен подтверждения электронного адреса для {instance.email}",
+    #         # message:
+    #         token.key,
+    #         # from:
+    #         settings.EMAIL_HOST_USER,
+    #         # to:
+    #         [instance.email]
+    #     )
+    #     msg.send() 
+    pass # NEW! Закоментировано так как ЭТО СДЕЛАНО НА АСИНХРОНКЕ в tasks.py
 
 
 # @receiver(new_order)

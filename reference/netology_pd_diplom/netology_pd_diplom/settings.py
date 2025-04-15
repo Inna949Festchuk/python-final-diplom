@@ -58,7 +58,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'django_rest_passwordreset',
-    'backend',
+    'backend.apps.BackendConfig',
 ]
 
 MIDDLEWARE = [
@@ -199,3 +199,10 @@ REST_FRAMEWORK = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Celery
+CELERY_BROKER_URL = 'redis://localhost:6379' # Брокер сообщений
+CELERY_RESULT_BACKEND = 'redis://localhost:6379' # Бекенд результатов
+CELERY_ACCEPT_CONTENT = ['application/json'] # Допустимый формат
+CELERY_RESULT_SERIALIZER = 'json' # Сериализатор результатов
+CELERY_TASK_SERIALIZER = 'json' # Сериализатор задач

@@ -24,50 +24,98 @@ from backend.serializers import UserSerializer, CategorySerializer, ShopSerializ
 from backend.signals import new_user_registered, new_order
 
 
+# class RegisterAccount(APIView):
+#     """
+#     Для регистрации покупателей
+#     """
+
+#     # Регистрация методом POST
+#     def post(self, request: Request, *args: Any, **kwargs: Any) -> JsonResponse: # NEW Добавлена аннотация типов
+#         """
+#         Process a POST request and create a new user.
+
+#         Args:
+#         - request (Request): The Django request object.
+
+#         Returns:
+#         - JsonResponse: The response indicating the status of the operation and any errors.
+#         """
+#         # проверяем, находятся ли все ключи в request.data
+#         if {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
+
+#             # проверяем пароль на сложность
+#             # sad = 'asd'
+#             try:
+#                 validate_password(request.data['password']) # Проверка сложности пароля
+#             except ValidationError as password_error: # Проверка ошибок пароля NEW
+#                 error_array = []
+#                 for item in password_error:
+#                     error_array.append(str(item)) # добавление строки (NEW) ошибок пароля в массив error_array 
+#                 return JsonResponse({'Status': False, 'Errors': {'password': error_array}}, status=400) # Отправка клиенту информации об ошибке ввода пароля
+#             else:
+#                 # проверяем данные пользователя на валидность
+#                 user_serializer = UserSerializer(data=request.data)
+#                 if user_serializer.is_valid():
+#                     user = user_serializer.save() # сохраняем данные пользователя в БД (если e-mail уникальный,
+#                                                     # что проверяется в models.py в классе UserManager в момент записи в БД
+#                     # Так как пароли должны храниться в безопасном виде. 
+#                     # Метод set_password() автоматически хеширует пароль из запроса
+#                     # с использованием алгоритма, установленного в настройках Django (по умолчанию это PBKDF2).
+#                     user.set_password(request.data['password'])
+#                     user.save() # сохраняем пользователя и хешированный пароль
+#                     return JsonResponse({'Status': True})
+#                 else:
+#                     return JsonResponse({'Status': False, 'Errors': user_serializer.errors}, status=400)
+
+#         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}, status=400)
+
+
+### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ###
+
+from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_201_CREATED
+from backend.tasks import send_new_user_confirmation_email  # Импортируем задачу для отправки письма
+
 class RegisterAccount(APIView):
     """
-    Для регистрации покупателей
+    Для регистрации пользователей.
     """
-
-    # Регистрация методом POST
-    def post(self, request: Request, *args: Any, **kwargs: Any) -> JsonResponse: # NEW Добавлена аннотация типов
+    
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         """
-        Process a POST request and create a new user.
-
-        Args:
-        - request (Request): The Django request object.
-
-        Returns:
-        - JsonResponse: The response indicating the status of the operation and any errors.
+        Обрабатываем POST-запросы и создаем новых пользователей.
+        
+        :param request: Объект запроса от клиента.
+        :return: JSON-ответ с результатом операции и возможными ошибками.
         """
-        # проверяем, находятся ли все ключи в request.data
-        if {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
+        required_fields = ['first_name', 'last_name', 'email', 'password', 'company', 'position']
+        missing_fields = [field for field in required_fields if field not in request.data]
+        
+        if missing_fields:
+            return Response({"Status": False, "Errors": {"missing_fields": missing_fields}},
+                            status=HTTP_400_BAD_REQUEST)
+            
+        try:
+            validate_password(request.data['password'])
+        except ValidationError as password_errors:
+            return Response({"Status": False, "Errors": {"password": list(password_errors)}},
+                            status=HTTP_400_BAD_REQUEST)
+        
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            user.set_password(request.data['password'])
+            user.save()
+            
+            # Создаем токен подтверждения почтового адреса и отправляем письмо
+            confirm_token = ConfirmEmailToken.objects.create(user=user).key
+            send_new_user_confirmation_email.delay(confirm_token, user.email)
+            
+            return Response({"Status": True}, status=HTTP_201_CREATED)
+        else:
+            return Response({"Status": False, "Errors": serializer.errors}, status=HTTP_400_BAD_REQUEST)
 
-            # проверяем пароль на сложность
-            # sad = 'asd'
-            try:
-                validate_password(request.data['password']) # Проверка сложности пароля
-            except ValidationError as password_error: # Проверка ошибок пароля NEW
-                error_array = []
-                for item in password_error:
-                    error_array.append(str(item)) # добавление строки (NEW) ошибок пароля в массив error_array 
-                return JsonResponse({'Status': False, 'Errors': {'password': error_array}}, status=400) # Отправка клиенту информации об ошибке ввода пароля
-            else:
-                # проверяем данные пользователя на валидность
-                user_serializer = UserSerializer(data=request.data)
-                if user_serializer.is_valid():
-                    user = user_serializer.save() # сохраняем данные пользователя в БД (если e-mail уникальный,
-                                                    # что проверяется в models.py в классе UserManager в момент записи в БД
-                    # Так как пароли должны храниться в безопасном виде. 
-                    # Метод set_password() автоматически хеширует пароль из запроса
-                    # с использованием алгоритма, установленного в настройках Django (по умолчанию это PBKDF2).
-                    user.set_password(request.data['password'])
-                    user.save() # сохраняем пользователя и хешированный пароль
-                    return JsonResponse({'Status': True})
-                else:
-                    return JsonResponse({'Status': False, 'Errors': user_serializer.errors}, status=400)
+### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ###
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'}, status=400)
 
 
 class ConfirmAccount(APIView):
@@ -617,7 +665,7 @@ class PartnerOrders(APIView):
         return Response(serializer.data)
 
 
-    ######################### NEW NEW NEW ########################
+    ######################## NEW NEW NEW ########################
 
     def post(self, request, *args, **kwargs):
         """
@@ -700,6 +748,39 @@ class PartnerOrders(APIView):
         )
 
     ######################### NEW NEW NEW ######################## 
+    
+
+### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ###
+
+
+### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ### NEW Async Celery ###
+    
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+
+        data = request.data
+        if {'id', 'state'}.issubset(data):
+            try:
+                order = Order.objects.get(id=data['id'], ordered_items__product_info__shop__user_id=request.user.id)
+                if order.state != data['state']:
+                    order.state = data['state']
+                    order.save()
+
+                    # Отправляем email пользователю через Celery
+                    user_email = order.user.email
+                    state_display = dict(Order.STATE_CHOICES)[order.state]
+                    send_order_status_update_email.delay(user_email=user_email, order_id=order.id, state_display=state_display)
+
+                    return JsonResponse({'Status': True})
+                else:
+                    return JsonResponse({'Status': False, 'Errors': 'Текущий статус совпадает с указанным'})
+            except Order.DoesNotExist:
+                return JsonResponse({'Status': False, 'Errors': 'Order not found'}, status=404)
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
 class ContactView(APIView):

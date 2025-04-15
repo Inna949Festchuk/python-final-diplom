@@ -1,5 +1,6 @@
 amqp==5.3.1
 asgiref==3.8.1
+async-timeout==5.0.1
 billiard==4.2.1
 celery==5.3.6
 certifi==2025.1.31
@@ -27,6 +28,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2025.1
 PyYAML==6.0.2
+redis==5.2.1
 requests==2.32.3
 requests-mock==1.12.1
 six==1.17.0

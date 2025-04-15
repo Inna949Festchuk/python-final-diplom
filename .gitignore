@@ -117,3 +117,5 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+/Users/apple/Documents/Full-stack-Python-developer/my_diplom/redis-7.2.7
