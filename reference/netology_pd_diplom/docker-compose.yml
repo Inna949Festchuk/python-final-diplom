@@ -45,9 +45,9 @@ services:
       broker:
         condition: service_healthy
 
-  networks:
-    default:
-      driver: host
+networks:
+  backend:
+    driver: host
 
   # broker:
   #   image: rabbitmq:4-management
