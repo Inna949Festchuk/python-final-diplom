@@ -55,9 +55,6 @@ networks:
   backend-network:
     driver: bridge
 
-# networks:
-#   backend:
-#     driver: host # Чтобы работало почтовое оповещение
 
   # broker:
   #   image: rabbitmq:4-management

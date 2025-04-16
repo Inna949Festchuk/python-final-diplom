@@ -212,8 +212,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Если Redis работает в другом контейнере, проверьте, правильно ли настроены сети в docker-compose.yml. 
 # Необходимо использовать имя контейнера Redis в качестве адреса для подключения, а не localhost. 
 # Например, если Redis запущен в контейнере с именем broker, то адрес должен выглядеть так:
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL') # Брокер сообщений
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND') # Бекенд результатов
+CELERY_BROKER_URL = 'redis://broker:6379' # Бекенд задач (Если запускаем через docker-compose 'redis://broker:6379' 
+                                                        # если локально то 'redis://localhost:6379')
+CELERY_RESULT_BACKEND = 'redis://broker:6379' # Бекенд результатов
 CELERY_ACCEPT_CONTENT = ['application/json'] # Допустимый формат
 CELERY_RESULT_SERIALIZER = 'json' # Сериализатор результатов
 CELERY_TASK_SERIALIZER = 'json' # Сериализатор задач
