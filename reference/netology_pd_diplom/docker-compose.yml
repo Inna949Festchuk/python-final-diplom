@@ -22,6 +22,8 @@ services:
         condition: service_healthy
       # db:
       #   condition: service_healthy
+    networks:
+      - backend-network
       
   broker:
     image: redis
@@ -32,6 +34,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    networks:
+      - backend-network
 
   celery:
     build:
@@ -44,10 +48,16 @@ services:
       #   condition: service_healthy
       broker:
         condition: service_healthy
+    networks:
+      - backend-network
 
 networks:
-  backend:
-    driver: host # Чтобы работало почтовое оповещение
+  backend-network:
+    driver: bridge
+
+# networks:
+#   backend:
+#     driver: host # Чтобы работало почтовое оповещение
 
   # broker:
   #   image: rabbitmq:4-management
@@ -62,6 +72,8 @@ networks:
   #       interval: 5s
   #       timeout: 5s
   #       retries: 3
+  #   networks:
+  #     - backend-network
 
   # db:
   #   image: postgres:15.3
@@ -74,3 +86,5 @@ networks:
 
   #   healthcheck:
   #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+  #   networks:
+  #     - backend-network

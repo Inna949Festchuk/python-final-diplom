@@ -31,19 +31,43 @@ redis-server
 redis-cli
 ```
 проверьте, может ли клиент взаимодействовать с сервером, выполнив команду `ping`, и если все пройдет хорошо , должен быть возвращен ответ `PONG`
+```bash
+127.0.0.1:6379> ping
+```
 
-2. Установка виртуального окружения Python и зависимостей requirements.txt, в том числе и `Celery`
-3. Откройте три отдельных окна терминала и запустите:
+### Установка Redis с помощью docer-compose
+Создайте `.yml` файл следующего содержания
+```
+version: '3.1'
+
+services:
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+```
+
+Запустить сборку
+```
+docker-compose up -d
+```
+
+1. Установка виртуального окружения Python и зависимостей requirements.txt, в том числе и `Celery`
+
+2. Откройте три отдельных окна терминала перейдите в папку в которой находится `manage.py` и запустите почередно:
 ```bash
 (venv) $ python manage.py runserver
-$ redis-server # — единственная из трех, которую вы можете запустить за пределами своей виртуальной среды
+$ redis-server # — единственный из трех, который вы можете запустить за пределами своей виртуальной среды
 (venv) $ python -m celery -A netology_pd_diplom worker
 ```
 
 ## Разворачиваем проект с помощью Docker и Docker-compose
 
 1. Клонировать приоект
+
 2. Перейти в рабочую дерриктороию
+
 3. Загрузить все переменные сред
 ```bash
 export DEBUG=True
@@ -52,7 +76,10 @@ export ALLOWED_HOSTS=localhost,127.0.0.1 # Или * - доступ с любог
 export DB_ENGINE=django.db.backends.sqlite3 
 export DB_NAME=db.sqlite3 
 export EMAIL_HOST_PASSWORD="your_email_password" # Пароль привязанный к почтовому сервису (Настройки для mail.ru, справка https://help.mail.ru/mail/security/protection/external/) Отправил почтой
+export CELERY_BROKER_URL=redis://broker:6379
+export CELERY_RESULT_BACKEND=redis://broker:6379
 ```
+
 для PostgreSQl
 ```bash
 export DEBUG=True
@@ -63,6 +90,8 @@ export DB_NAME="your_postgres_db_name"
 export POSTGRES_USER="your_postgres_db_user"
 export POSTGRES_PASSWORD="your_postgres_db_pass"
 export EMAIL_HOST_PASSWORD="your_email_host_password"
+export CELERY_BROKER_URL=redis://broker:6379
+export CELERY_RESULT_BACKEND=redis://broker:6379
 ```
 
 Кроме того, если видишь сообщение Compose can now delegate builds to bake for better performance,
@@ -70,7 +99,8 @@ export EMAIL_HOST_PASSWORD="your_email_host_password"
 ```bash
 export COMPOSE_BAKE=true
 ```
-5.  Запустить сборку 
+
+5.  Запустить сборку (--build для пересборки)
 ```bash
 docker-compose up -d --build
 ``` 

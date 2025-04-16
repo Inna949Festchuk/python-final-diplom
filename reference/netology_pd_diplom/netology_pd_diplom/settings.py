@@ -159,13 +159,13 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # SERVER_EMAIL = EMAIL_HOST_USER
 
 # # Настройки для mail.ru, справка https://help.mail.ru/mail/security/protection/external/
-EMAIL_HOST = 'smtp.mail.ru' # Yandex SMTP-сервер
-
+EMAIL_HOST = 'smtp.mail.ru' # SMTP-сервер
 EMAIL_HOST_USER = 'festchuk@mail.ru'
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') # Пароль приложения
 EMAIL_PORT = '465' # Для SSL (или 587 для TLS)
-EMAIL_USE_SSL = True # Для порта 465 (если используете 587 → EMAIL_USE_TLS = True)
+EMAIL_USE_SSL = True # Для порта 465 (если используете 587 (более безопасно) → EMAIL_USE_TLS = True)
 SERVER_EMAIL = EMAIL_HOST_USER # Для отправки системных писем
+
 
 # # Проверка доступа к SMTP
 # # python manage.py shell
@@ -212,8 +212,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Если Redis работает в другом контейнере, проверьте, правильно ли настроены сети в docker-compose.yml. 
 # Необходимо использовать имя контейнера Redis в качестве адреса для подключения, а не localhost. 
 # Например, если Redis запущен в контейнере с именем broker, то адрес должен выглядеть так:
-CELERY_BROKER_URL = 'redis://broker:6379' # Брокер сообщений
-CELERY_RESULT_BACKEND = 'redis://broker:6379' # Бекенд результатов
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL') # Брокер сообщений
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND') # Бекенд результатов
 CELERY_ACCEPT_CONTENT = ['application/json'] # Допустимый формат
 CELERY_RESULT_SERIALIZER = 'json' # Сериализатор результатов
 CELERY_TASK_SERIALIZER = 'json' # Сериализатор задач
