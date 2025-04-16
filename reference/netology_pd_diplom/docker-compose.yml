@@ -1,6 +1,5 @@
 services:
 
-
   app:
     build:
       context: .
@@ -46,7 +45,9 @@ services:
       broker:
         condition: service_healthy
 
-
+  networks:
+    default:
+      driver: host
 
   # broker:
   #   image: rabbitmq:4-management
