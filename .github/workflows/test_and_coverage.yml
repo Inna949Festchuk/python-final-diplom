@@ -18,7 +18,7 @@
 #                 coverageFile: python-final-diplom/reference/netology_pd_diplom/.coverage.xml
 #                 token: ${{ secrets.GITHUB_TOKEN }}
 
-name: 'Test and Coverage Report'
+name: 'Тестирование и покрытие кода'
 
 on:
   push:
@@ -34,26 +34,27 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Set up Python
+      - name: Установка Python
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
+      - name: Установка зависимостей
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r python-final-diplom/reference/requirements.txt
           pip install pytest coverage pytest-cov
 
-      - name: Run tests with coverage
+      - name: Запуск тестов с покрытием
         run: |
-          export DJANGO_SETTINGS_MODULE=reference.netology_pd_diplom.netology_pd_diplom.settings
-          pytest --cov=reference/netology_pd_diplom --cov-report xml:coverage.xml
+          export DJANGO_SETTINGS_MODULE=reference.netology_pd_diplom.settings
+          cd python-final-diplom/reference
+          pytest --cov=netology_pd_diplom --cov-report xml:coverage.xml
         env:
-          PYTHONPATH: ${{ github.workspace }}/reference  # Указываем точный путь к модулям
-          DJANGO_SETTINGS_MODULE: reference.netology_pd_diplom.netology_pd_diplom.settings
+          PYTHONPATH: ${{ github.workspace }}  # Автоматически добавляется корневой каталог
+          DJANGO_SETTINGS_MODULE: reference.netology_pd_diplom.settings
 
-      - name: Upload coverage report
+      - name: Загрузка отчета покрытия
         uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
