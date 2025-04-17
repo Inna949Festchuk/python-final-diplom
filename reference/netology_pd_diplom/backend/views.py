@@ -77,7 +77,7 @@ from backend.tasks import send_new_user_confirmation_email  # Импортиру
 
 class RegisterAccount(APIView):
     """
-    Для регистрации пользователей.
+    Для регистрации пользователей
     """
     
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
