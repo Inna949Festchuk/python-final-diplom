@@ -50,7 +50,7 @@ jobs:
           export DJANGO_SETTINGS_MODULE=reference.netology_pd_diplom.netology_pd_diplom.settings
           pytest --cov=reference/netology_pd_diplom --cov-report xml:coverage.xml
         env:
-          PYTHONPATH: reference  # Указание пути к модулям
+          PYTHONPATH: ${{ github.workspace }}/reference  # Указываем точный путь к модулям
           DJANGO_SETTINGS_MODULE: reference.netology_pd_diplom.netology_pd_diplom.settings
 
       - name: Upload coverage report
@@ -58,4 +58,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittest
+
 
