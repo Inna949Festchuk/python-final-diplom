@@ -196,25 +196,22 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
-
-    ),
+    ), # Классы рендереров
 
     'DEFAULT_AUTHENTICATION_CLASSES': (
-
         'rest_framework.authentication.TokenAuthentication',
-    ),
+    ), # Аутентификация по токену
 }
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField' 
 
 
 # Celery
-# Если Redis работает в другом контейнере, проверьте, правильно ли настроены сети в docker-compose.yml. 
 # Необходимо использовать имя контейнера Redis в качестве адреса для подключения, а не localhost. 
 # Например, если Redis запущен в контейнере с именем broker, то адрес должен выглядеть так:
-CELERY_BROKER_URL = 'redis://broker:6379' # Бекенд задач (Если запускаем через docker-compose 'redis://broker:6379' 
+CELERY_BROKER_URL = 'redis://localhost:6379' # Бекенд задач (Если запускаем через docker-compose 'redis://broker:6379' 
                                                         # если локально то 'redis://localhost:6379')
-CELERY_RESULT_BACKEND = 'redis://broker:6379' # Бекенд результатов
+CELERY_RESULT_BACKEND = 'redis://localhost:6379' # Бекенд результатов
 CELERY_ACCEPT_CONTENT = ['application/json'] # Допустимый формат
 CELERY_RESULT_SERIALIZER = 'json' # Сериализатор результатов
 CELERY_TASK_SERIALIZER = 'json' # Сериализатор задач
