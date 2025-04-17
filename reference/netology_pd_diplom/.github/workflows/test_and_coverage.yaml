@@ -15,5 +15,5 @@ jobs:
           - name: Get Cover 
             uses: orgoro/coverage@v3.2
             with:
-                coverageFile: path/to/coverage.xml
+                coverageFile: python-final-diplom/reference/netology_pd_diplom/coverage.xml
                 token: ${{ secrets.GITHUB_TOKEN }}
