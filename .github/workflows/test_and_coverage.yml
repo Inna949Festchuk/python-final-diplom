@@ -53,11 +53,11 @@ jobs:
       - name: Запуск тестов с покрытием
         run: |
           export DJANGO_SETTINGS_MODULE=reference.netology_pd_diplom.netology_pd_diplom.settings
-          cd python-final-diplom/reference/netology_pd_diplom
-          pytest --cov=netology_pd_diplom --cov-report=xml:coverage.xml
+          pytest python-final-diplom/reference/netology_pd_diplom/tests/ --cov=netology_pd_diplom --cov-report=xml:coverage.xml
         env:
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}/python-final-diplom/reference/netology_pd_diplom
           DJANGO_SETTINGS_MODULE: reference.netology_pd_diplom.netology_pd_diplom.settings
+
 
       # # Шаг 5: Отправка отчета покрытия кода в Codecov
       # - name: Отправка отчета покрытия
